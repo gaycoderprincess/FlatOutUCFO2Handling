@@ -144,47 +144,36 @@ void __fastcall FO2ControllerSteering(float* pCar, uint32_t a2_) {
 	auto f415 = pCar[561] - pCar[562];
 
 	auto v16 = pCar[562];
-	auto v17_ = *(uintptr_t*)(pCarPtr + 0x294);
+	auto vVelocity_ = *(uintptr_t*)(pCarPtr + 0x294);
 	pCar[574] = pCar[562];
-	v17_ += 0x290;
-	auto v17 = (float*)v17_;
+	vVelocity_ += 0x290;
+	auto vVelocity = (float*)vVelocity_;
 	auto v37 = 0.0;
 	auto v38 = 0.0;
 	auto v39 = 0.0;
 	pCar[562] = a2 * 1000.0 / *(int32_t*)(pCarPtr + 0x314) * f415 + pCar[562];
 	auto v15 = v16 * v16 * v16 * (1.0 - fSensitivity) + (1.0 - (1.0 - fSensitivity)) * v16 - pCar[563];
-	auto v43 = std::abs(v15);
 	auto fMaxSpeedFactor = fMaxAnalogSpeed * a2;
-	auto fCarSpeed = std::sqrt(v17[0] * v17[0] + v17[1] * v17[1] + v17[2] * v17[2]) * 3.6;
+	auto fCarSpeed = std::sqrt(vVelocity[0] * vVelocity[0] + vVelocity[1] * vVelocity[1] + vVelocity[2] * vVelocity[2]) * 3.6;
 	auto v18 = 0.0;
 	auto v19 = 0.0;
 	auto v23 = 0.0;
-	if ( fCarSpeed <= fSteeringLimitSpeed[3] )
-	{
-		if ( fCarSpeed <= fSteeringLimitSpeed[2] )
-		{
-			if ( fCarSpeed < fSteeringLimitSpeed[1] )
-			{
-				if ( fCarSpeed < fSteeringLimitSpeed[0] )
-				{
+	if (fCarSpeed < fSteeringLimitSpeed[3]) {
+		if (fCarSpeed < fSteeringLimitSpeed[2]) {
+			if (fCarSpeed < fSteeringLimitSpeed[1]) {
+				if (fCarSpeed < fSteeringLimitSpeed[0]) {
 					v18 = fCarSpeed / fSteeringLimitSpeed[0];
 					v39 = 1.0 - v18;
-				}
-				else
-				{
+				} else {
 					v37 = (fCarSpeed - fSteeringLimitSpeed[0]) / (fSteeringLimitSpeed[1] - fSteeringLimitSpeed[0]);
 					v18 = 1.0 - v37;
 				}
 				v23 = 0.0;
-			}
-			else
-			{
+			} else {
 				v23 = (fCarSpeed - fSteeringLimitSpeed[1]) / (fSteeringLimitSpeed[2] - fSteeringLimitSpeed[1]);
 				v37 = 1.0 - v23;
 			}
-		}
-		else
-		{
+		} else {
 			v38 = (fCarSpeed - fSteeringLimitSpeed[2]) / (fSteeringLimitSpeed[3] - fSteeringLimitSpeed[2]);
 			v23 = 1.0 - v38;
 		}
@@ -193,32 +182,28 @@ void __fastcall FO2ControllerSteering(float* pCar, uint32_t a2_) {
 			  + fSteeringSpeedRate[2] * v23
 			  + fSteeringSpeedRate[3] * v38
 			  + v39;
-	}
-	else
-	{
+	} else {
 		v19 = fSteeringSpeedRate[3];
 	}
 	auto v34 = fMaxSpeedFactor * v19;
 	auto v27 = fMinAnalogSpeed * a2 * v19;
-	auto v28 = (v43 - fMinAtDelta * a2) / (fMaxAtDelta * a2 - fMinAtDelta * a2);
-	auto v29 = v28;
-	if ( v28 >= 0.0 )
-	{
-		if ( v28 > 1.0 )
-			v29 = 1.0;
+	auto v28 = (std::abs(v15) - fMinAtDelta * a2) / (fMaxAtDelta * a2 - fMinAtDelta * a2);
+	if (v28 < 0.0) {
+		v28 = 0.0;
 	}
-	else
-	{
-		v29 = 0.0;
+	else if (v28 > 1.0) {
+		v28 = 1.0;
 	}
-	auto v35 = (v34 - v27) * v29 + v27;
-	if ( v35 >= fMaxSpeedFactor )
+	auto v35 = (v34 - v27) * v28 + v27;
+	if (v35 >= fMaxSpeedFactor) {
 		v35 = fMaxAnalogSpeed * a2;
-	if ( v15 > v35 )
+	}
+	if (v15 > v35) {
 		v15 = v35;
-	auto v42 = -v35;
-	if ( v15 < v42 )
-		v15 = v42;
+	}
+	if (v15 < -v35) {
+		v15 = -v35;
+	}
 	pCar[563] = v15 + pCar[563];
 }
 
