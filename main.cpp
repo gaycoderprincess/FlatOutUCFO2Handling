@@ -1,0 +1,279 @@
+#include <windows.h>
+#include <cmath>
+#include "nya_commonhooklib.h"
+
+void* pDBSteering = nullptr;
+
+// read Steering_PC for all cars
+uintptr_t SteeringASM_jmp = 0x45CA76;
+void __attribute__((naked)) SteeringASM() {
+	__asm__ (
+		"mov eax, [%1]\n\t"
+		"jmp %0\n\t"
+			:
+			:  "m" (SteeringASM_jmp), "m" (pDBSteering)
+	);
+}
+
+uintptr_t GetSteeringASM_jmp = 0x45EC30;
+void __attribute__((naked)) GetSteeringASM() {
+	__asm__ (
+		"mov ecx, esi\n\t"
+		"call edx\n\t"
+		"mov [%1], eax\n\t"
+		"mov eax, [esi]\n\t"
+		"mov edx, [eax+8]\n\t"
+		"jmp %0\n\t"
+			:
+			:  "m" (GetSteeringASM_jmp), "m" (pDBSteering)
+	);
+}
+
+// slidecontrolmultiplier [54]+0x18
+// antispinmultiplier [54]+0x1C
+// turbospinmultiplier [54]+0x20
+// car + 0x1DD4
+// car + 0x1DD8
+// car + 0x1DDC
+// turbospinmultiplier is actually never read
+
+// fo2: v66 = 1.0 - v171 * *(a1 + 0x1CEC);
+// fouc: v116 = (1.0 - *(a1 + 0x1DEC) * v116) * *(a1 + 0x1DD8);
+// +0x1CEC = AntiSpinReduction
+// +0x1DEC = AntiSpinReduction
+
+// fo2: 1.0 - v171 * fAntiSpinReduction;
+// fouc: (1.0 - fAntiSpinReduction * v116) * fAntiSpinMultiplier;
+
+// steering in fouc is read around 0047CE51
+
+// CompressionToleranceSpeed: car + 0x1E24 and 0x1E74
+// CompressionMaxCorrection: car + 0x1E28 and 0x1E78
+// DecompressionSpeed: car + 0x1E2C and 0x1E7C
+
+// CompressionToleranceSpeed read at 42D935
+// CompressionMaxCorrection read at 42D95D
+// DecompressionSpeed read at 42D974
+
+void WriteSuspensionValues() {
+	// CompressionToleranceSpeed
+	*(float*)0x849858 = 2;
+	*(float*)0x84985C = 2;
+
+	// CompressionMaxCorrection
+	*(float*)0x849860 = 0;
+	*(float*)0x849864 = 0;
+
+	// DecompressionSpeed
+	*(float*)0x849868 = 0;
+	*(float*)0x84986C = 0;
+}
+
+uintptr_t SuspensionASM_jmp = 0x45D2A5;
+void __attribute__((naked)) SuspensionASM() {
+	__asm__ (
+		"mov eax, [edi]\n\t"
+		"mov edx, [eax+0x90]\n\t"
+		"mov ecx, edi\n\t"
+		"pushad\n\t"
+		"call %1\n\t"
+		"popad\n\t"
+		"jmp %0\n\t"
+			:
+			:  "m" (SuspensionASM_jmp), "i" (WriteSuspensionValues)
+	);
+}
+
+float fSensitivity = 0.5;
+float fMinAnalogSpeed = 0.1;
+float fMaxAnalogSpeed = 2;
+float fMinAtDelta = 1;
+float fMaxAtDelta = 2;
+float fSteeringSpeedRate[4] = { 2, 2, 2, 2 };
+float fSteeringLimitSpeed[4] = { 20, 40, 100, 250 };
+
+void __fastcall WriteHardcodedSteeringValues(float* f) {
+	fSensitivity = f[28];
+	fMaxAnalogSpeed = f[29];
+	fMinAnalogSpeed = f[30];
+	fMinAtDelta = f[31];
+	fMaxAtDelta = f[32];
+	fSteeringLimitSpeed[0] = f[44];
+	fSteeringLimitSpeed[1] = f[45];
+	fSteeringLimitSpeed[2] = f[46];
+	fSteeringLimitSpeed[3] = f[47];
+	fSteeringSpeedRate[0] = f[48];
+	fSteeringSpeedRate[1] = f[49];
+	fSteeringSpeedRate[2] = f[50];
+	fSteeringSpeedRate[3] = f[51];
+
+	// FO2 overrides some digital steering values after reading the DB, so just using the values from Steering_PC alone won't work
+	f[33] = 0.99; // CenteringSpeed
+	f[35] = 1.5; // MinDigitalSpeed
+	f[36] = 3.5; // MaxDigitalSpeed
+}
+
+uintptr_t HardcodedSteeringASM_jmp = 0x45CC32;
+void __attribute__((naked)) HardcodedSteeringASM() {
+	__asm__ (
+		"fstp dword ptr [esi+0x98]\n\t"
+		"mov eax, [edi]\n\t"
+		"pushad\n\t"
+		"mov ecx, esi\n\t"
+		"call %1\n\t"
+		"popad\n\t"
+		"jmp %0\n\t"
+			:
+			:  "m" (HardcodedSteeringASM_jmp), "i" (WriteHardcodedSteeringValues)
+	);
+}
+
+// todo clean this up, this is awful
+// FO2's smooth steering algorithm for controllers
+void __fastcall FO2ControllerSteering(float* pCar, uint32_t a2_) {
+	auto pCarPtr = (uintptr_t)pCar;
+	auto a2 = *(float*)&a2_;
+
+	// [574] - [428]
+	// [562] - [414]
+	// [561] - [415], guessed, [413] - [414]
+	// [563] - [417]
+	// 0x294 - 0x294
+	// 0x314 - 0x3B8
+
+	auto f415 = pCar[561] - pCar[562];
+
+	auto v16 = pCar[562];
+	auto v17_ = *(uintptr_t*)(pCarPtr + 0x294);
+	pCar[574] = pCar[562];
+	v17_ += 0x290;
+	auto v17 = (float*)v17_;
+	auto v37 = 0.0;
+	auto v38 = 0.0;
+	auto v39 = 0.0;
+	pCar[562] = a2 * 1000.0 / *(int32_t*)(pCarPtr + 0x314) * f415 + pCar[562];
+	auto v15 = v16 * v16 * v16 * (1.0 - fSensitivity) + (1.0 - (1.0 - fSensitivity)) * v16 - pCar[563];
+	auto v43 = std::abs(v15);
+	auto fMaxSpeedFactor = fMaxAnalogSpeed * a2;
+	auto fCarSpeed = std::sqrt(v17[0] * v17[0] + v17[1] * v17[1] + v17[2] * v17[2]) * 3.6;
+	auto v18 = 0.0;
+	auto v19 = 0.0;
+	auto v23 = 0.0;
+	if ( fCarSpeed <= fSteeringLimitSpeed[3] )
+	{
+		if ( fCarSpeed <= fSteeringLimitSpeed[2] )
+		{
+			if ( fCarSpeed < fSteeringLimitSpeed[1] )
+			{
+				if ( fCarSpeed < fSteeringLimitSpeed[0] )
+				{
+					v18 = fCarSpeed / fSteeringLimitSpeed[0];
+					v39 = 1.0 - v18;
+				}
+				else
+				{
+					v37 = (fCarSpeed - fSteeringLimitSpeed[0]) / (fSteeringLimitSpeed[1] - fSteeringLimitSpeed[0]);
+					v18 = 1.0 - v37;
+				}
+				v23 = 0.0;
+			}
+			else
+			{
+				v23 = (fCarSpeed - fSteeringLimitSpeed[1]) / (fSteeringLimitSpeed[2] - fSteeringLimitSpeed[1]);
+				v37 = 1.0 - v23;
+			}
+		}
+		else
+		{
+			v38 = (fCarSpeed - fSteeringLimitSpeed[2]) / (fSteeringLimitSpeed[3] - fSteeringLimitSpeed[2]);
+			v23 = 1.0 - v38;
+		}
+		v19 = fSteeringSpeedRate[1] * v37
+			  + fSteeringSpeedRate[0] * v18
+			  + fSteeringSpeedRate[2] * v23
+			  + fSteeringSpeedRate[3] * v38
+			  + v39;
+	}
+	else
+	{
+		v19 = fSteeringSpeedRate[3];
+	}
+	auto v34 = fMaxSpeedFactor * v19;
+	auto v27 = fMinAnalogSpeed * a2 * v19;
+	auto v28 = (v43 - fMinAtDelta * a2) / (fMaxAtDelta * a2 - fMinAtDelta * a2);
+	auto v29 = v28;
+	if ( v28 >= 0.0 )
+	{
+		if ( v28 > 1.0 )
+			v29 = 1.0;
+	}
+	else
+	{
+		v29 = 0.0;
+	}
+	auto v35 = (v34 - v27) * v29 + v27;
+	if ( v35 >= fMaxSpeedFactor )
+		v35 = fMaxAnalogSpeed * a2;
+	if ( v15 > v35 )
+		v15 = v35;
+	auto v42 = -v35;
+	if ( v15 < v42 )
+		v15 = v42;
+	pCar[563] = v15 + pCar[563];
+}
+
+uintptr_t FO2ControllerSteeringASM_jmp = 0x47D1CC;
+void __attribute__((naked)) FO2ControllerSteeringASM() {
+	__asm__ (
+		"pushad\n\t"
+		"mov ecx, esi\n\t"
+		"mov edx, [ebp+8]\n\t"
+		"call %1\n\t"
+		"popad\n\t"
+		"jmp %0\n\t"
+			:
+			:  "m" (FO2ControllerSteeringASM_jmp), "i" (FO2ControllerSteering)
+	);
+}
+
+BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
+	switch( fdwReason ) {
+		case DLL_PROCESS_ATTACH: {
+			if (NyaHookLib::GetEntryPoint() != 0x24CEF7) {
+				MessageBoxA(nullptr, "Unsupported game version! Make sure you're using the Steam GFWL version (.exe size of 4242504 bytes)", "nya?!~", MB_ICONERROR);
+				exit(0);
+				return TRUE;
+			}
+
+			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45EC27, &GetSteeringASM);
+			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45CA68, &SteeringASM);
+			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45D29B, &SuspensionASM);
+			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45CC2A, &HardcodedSteeringASM);
+			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x47CF24, &FO2ControllerSteeringASM);
+
+			// get sqrt of car speed for max steer angle
+			NyaHookLib::Patch<uint16_t>(0x47D323, 0xFAD9);
+			NyaHookLib::Patch(0x47D2F9 + 2, 0x294);
+			NyaHookLib::Patch(0x47D2FF + 2, 0x290);
+			NyaHookLib::Patch(0x47D313 + 2, 0x298);
+
+			// skip new multipliers in the handling code
+			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x42B7B7, 0x42B7C5);
+			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x42C040, 0x42C046);
+
+			static const char* steeringPath = "Data.Physics.Car.Steering_PC";
+			NyaHookLib::Patch(0x45EC22 + 1, steeringPath);
+			static const char* tempSlideControlDB = "SlideControlBalance";
+			NyaHookLib::Patch(0x45CD04 + 1, tempSlideControlDB);
+			NyaHookLib::Patch(0x45CD2D + 1, tempSlideControlDB);
+			NyaHookLib::Patch(0x45CD56 + 1, tempSlideControlDB);
+			static const char* tempSuspensionDB = "FrontDefaultCompression";
+			NyaHookLib::Patch(0x45D223 + 1, tempSuspensionDB);
+			NyaHookLib::Patch(0x45D23E + 1, tempSuspensionDB);
+			NyaHookLib::Patch(0x45D267 + 1, tempSuspensionDB);
+		} break;
+		default:
+			break;
+	}
+	return TRUE;
+}
