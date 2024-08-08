@@ -4,7 +4,9 @@ Plugin to port FlatOut 2 handling into FlatOut: Ultimate Carnage, recreating the
 
 Best paired with [my mod to disable wallriding](https://github.com/gaycoderprincess/FlatOutUCNoWallriding/releases).
 
-This mod takes a more unique approach, as instead of tweaking the existing handling values, I copied the FlatOut 2 values one to one, and modified the game's code to use the values the same way as FlatOut 2 does.
+https://github.com/user-attachments/assets/0bb66593-6110-4aa6-93f8-e74b090a1a06
+
+This mod takes a more unique approach, as instead of tweaking the existing handling values, I copied the FlatOut 2 values one to one, and then modified the game's code to use the values the same way as FlatOut 2 does.
 
 This includes the removal of extra parameters such as SlideControlMultiplier and AntiSpinMultiplier, as well as a conversion of FlatOut 2's smooth steering algorithm.
 
