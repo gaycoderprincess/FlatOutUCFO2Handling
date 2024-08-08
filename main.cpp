@@ -246,6 +246,12 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x42B7B7, 0x42B7C5);
 			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x42C040, 0x42C046);
 
+			// remove some divisions from steering math
+			NyaHookLib::Patch<uint16_t>(0x429FBB, 0xD8DD);
+			NyaHookLib::Patch<uint16_t>(0x429FCF, 0xD8DD);
+			NyaHookLib::Patch<uint16_t>(0x42A4A0, 0xD8DD);
+			NyaHookLib::Patch<uint16_t>(0x42A4B4, 0xD8DD);
+
 			static const char* steeringPath = "Data.Physics.Car.Steering_PC";
 			NyaHookLib::Patch(0x45EC22 + 1, steeringPath);
 			static const char* tempSlideControlDB = "SlideControlBalance";
