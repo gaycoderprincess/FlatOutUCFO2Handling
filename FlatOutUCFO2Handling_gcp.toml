@@ -1,0 +1,9 @@
+# FlatOut UC FO2 Handling by Chloe @gaycoderprincess
+# enjoy, nya~ :3
+
+[main]
+slide_factor = 5			# Slide power factor (1 in FOUC, 3.75 in FO2)
+stability_factor = 1			# Tire grip stability factor (1 in FOUC, 1.2 in FO2)
+slide_hack_factor = 1			# Multiplier hack for the slide power factor, can yield odd results (1 in both games)
+stability_hack_factor = 1		# Multiplier hack for the tire grip stability factor, can yield odd results (1 in both games)
+brake_hack = true			# Tweaks the brake behavior a bit, having this on will break the auto-brake at low speeds

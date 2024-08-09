@@ -1,6 +1,13 @@
 #include <windows.h>
 #include <cmath>
+#include "toml++/toml.hpp"
 #include "nya_commonhooklib.h"
+
+float fSlidingFactor = 3.75;
+float fStabilityFactor = 1.2;
+float fSlidingHackFactor = 1;
+float fStabilityHackFactor = 1;
+bool bBrakeHack = false;
 
 void* pDBSteering = nullptr;
 
@@ -221,44 +228,6 @@ void __attribute__((naked)) FO2ControllerSteeringASM() {
 	);
 }
 
-float fSteerMultTest = 1.33;
-
-uintptr_t SteerMultTest_jmp = 0x429F6D;
-void __attribute__((naked)) SteerMultTest() {
-	__asm__ (
-		"lea eax, %1\n\t"
-		"fld dword ptr [esp+0x10]\n\t"
-		"fmul dword ptr [esp+0x18]\n\t"
-		"fmul dword ptr [eax]\n\t"
-		"fstp dword ptr [esp+0x18]\n\t"
-		"fld dword ptr [esp+0xC]\n\t"
-		"fmul dword ptr [esp+0x14]\n\t"
-		"fmul dword ptr [eax]\n\t"
-		"fstp dword ptr [esp+0x14]\n\t"
-		"jmp %0\n\t"
-			:
-			:  "m" (SteerMultTest_jmp), "m" (fSteerMultTest)
-	);
-}
-
-uintptr_t SteerMultTest2_jmp = 0x429F33;
-void __attribute__((naked)) SteerMultTest2() {
-	__asm__ (
-		"lea eax, %1\n\t"
-		"fld dword ptr [esp+0xC]\n\t"
-		"fmul dword ptr [esp+0x18]\n\t"
-		"fmul dword ptr [eax]\n\t"
-		"fstp dword ptr [esp+0x18]\n\t"
-		"fld dword ptr [esp+0x10]\n\t"
-		"fmul dword ptr [esp+0x14]\n\t"
-		"fmul dword ptr [eax]\n\t"
-		"fstp dword ptr [esp+0x14]\n\t"
-		"jmp %0\n\t"
-			:
-			:  "m" (SteerMultTest2_jmp), "m" (fSteerMultTest)
-	);
-}
-
 double __cdecl FO2TirePhysics(float a1, float a2, float a3, float a4, float a5, float extraMult, float extraMagicNumber) {
 	// FOUC behavior:
 	//auto a1 = arg0 * a2;
@@ -275,7 +244,7 @@ double __cdecl FO2TirePhysics(float a1, float a2, float a3, float a4, float a5, 
 	//v43 = cos(atan2(3.75 * v42 - atan2(v42, 1.0) * 2.75, 1.0) * 2.3 - 1.5707964) * 0.50999999;
 
 	//CalculateSomeTirePhysicsStuff(v47, 0.71399999, 1.4, 1.0, -0.2);
-	//cos(atan2(1.2 * (v93 * 0.71399999) - atan2(v93 * 0.71399999, 1.0) * 0.2, 1.0) * 1.4 - 1.5707964);
+	//cos(atan2(1.2 * (v93 * 0.714) - atan2(v93 * 0.714, 1.0) * 0.2, 1.0) * 1.4 - 1.5707964);
 
 	auto v42 = a1 * a2;
 	// technically correct, exact FO2 code but doesn't feel right?
@@ -292,11 +261,11 @@ double __cdecl FO2TirePhysics(float a1, float a2, float a3, float a4, float a5, 
 // later read in tire func at 004553FC, stored into +0x3C
 
 double __cdecl FO2TirePhysics1(float a1, float a2, float a3, float a4, float a5) {
-	return FO2TirePhysics(a1, a2, a3, a4, a5, 3.75, 1.5);
+	return FO2TirePhysics(a1, a2, a3, a4, a5, fSlidingFactor, fSlidingHackFactor);
 }
 
 double __cdecl FO2TirePhysics2(float a1, float a2, float a3, float a4, float a5) {
-	return FO2TirePhysics(a1, a2, a3, a4, a5, 1.2, 1);
+	return FO2TirePhysics(a1, a2, a3, a4, a5, fStabilityFactor, fStabilityHackFactor);
 }
 
 BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
@@ -307,6 +276,13 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 				exit(0);
 				return TRUE;
 			}
+
+			auto config = toml::parse_file("FlatOutUCFO2Handling_gcp.toml");
+			fSlidingFactor = config["main"]["slide_factor"].value_or(3.75);
+			fStabilityFactor = config["main"]["stability_factor"].value_or(1.2);
+			fSlidingHackFactor = config["main"]["slide_hack_factor"].value_or(1);
+			fStabilityHackFactor = config["main"]["stability_hack_factor"].value_or(1);
+			bBrakeHack = config["main"]["brake_hack"].value_or(false);
 
 			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45EC27, &GetSteeringASM);
 			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45CA68, &SteeringASM);
@@ -336,8 +312,10 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 			NyaHookLib::Patch(0x443FDB + 2, &fBrakePowerMult);
 			NyaHookLib::Patch(0x444064 + 2, &fBrakePowerMult);
 
-			// go down a different path for some brake code
-			NyaHookLib::Patch(0x4444EC, 0x443F7D);
+			if (bBrakeHack) {
+				// go down a different path for some brake code
+				NyaHookLib::Patch(0x4444EC, 0x443F7D);
+			}
 
 			//NyaHookLib::Patch<float>(0x6F81A0, 0.852 * 3.75);
 			//NyaHookLib::Patch<float>(0x6F8198, 0.714 * 1.2);
@@ -346,9 +324,6 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 			NyaHookLib::PatchRelative(NyaHookLib::CALL, 0x454CBA, &FO2TirePhysics1); // 3.75
 			NyaHookLib::PatchRelative(NyaHookLib::CALL, 0x454DD4, &FO2TirePhysics2); // 1.2
 			NyaHookLib::PatchRelative(NyaHookLib::CALL, 0x45B90F, &FO2TirePhysics2); // 1.2
-
-			//NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x429F55, &SteerMultTest);
-			//NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x429F1B, &SteerMultTest2);
 
 			static const char* steeringPath = "Data.Physics.Car.Steering_PC";
 			NyaHookLib::Patch(0x45EC22 + 1, steeringPath);
