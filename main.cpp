@@ -2,11 +2,14 @@
 #include <cmath>
 #include "toml++/toml.hpp"
 #include "nya_commonhooklib.h"
+#include "fo2tirephys.h"
 
 float fSlidingFactor = 3.75;
 float fStabilityFactor = 1.2;
 float fSlidingHackFactor = 1;
 float fStabilityHackFactor = 1;
+float fSlidingHackFactor2 = 1;
+float fStabilityHackFactor2 = 1;
 bool bBrakeHack = false;
 
 void* pDBSteering = nullptr;
@@ -228,7 +231,7 @@ void __attribute__((naked)) FO2ControllerSteeringASM() {
 	);
 }
 
-double __cdecl FO2TirePhysics(float a1, float a2, float a3, float a4, float a5, float extraMult, float extraMagicNumber) {
+double __cdecl FO2TirePhysics(float a1, float a2, float a3, float a4, float a5, float extraMult, float extraMagicNumber, float extraMagicNumber2) {
 	// FOUC behavior:
 	//auto a1 = arg0 * a2;
 	//auto v7 = atan(a1) * a5 + (1.0 - a5) * a1;
@@ -250,7 +253,10 @@ double __cdecl FO2TirePhysics(float a1, float a2, float a3, float a4, float a5, 
 	// technically correct, exact FO2 code but doesn't feel right?
 	//return cos(atan2(extraMult * v42 - atan2(v42, 1.0) * -a5, 1.0) * a3 - 1.5707964) * a4;
 	// this feels a lot more FO2-y
-	return cos(atan2(extraMult * v42 - atan2(extraMagicNumber * v42, 1.0) * -a5, 1.0) * a3 - 1.5707964) * a4;
+	return cos(atan2(extraMult * v42 - atan2(extraMagicNumber * v42, 1.0) * -a5, 1.0) * a3 - 1.5707964) * a4 * extraMagicNumber2;
+
+	// FO1:
+	// v117 = cos(atan2(v16 / v15[8], 1.0) + atan2(v16 / v15[8], 1.0) - 1.5707964) * v15[7];
 }
 
 // +0x1E14 brake torque
@@ -261,11 +267,108 @@ double __cdecl FO2TirePhysics(float a1, float a2, float a3, float a4, float a5, 
 // later read in tire func at 004553FC, stored into +0x3C
 
 double __cdecl FO2TirePhysics1(float a1, float a2, float a3, float a4, float a5) {
-	return FO2TirePhysics(a1, a2, a3, a4, a5, fSlidingFactor, fSlidingHackFactor);
+	return FO2TirePhysics(a1, a2, a3, a4, a5, fSlidingFactor, fSlidingHackFactor, fSlidingHackFactor2);
 }
 
 double __cdecl FO2TirePhysics2(float a1, float a2, float a3, float a4, float a5) {
-	return FO2TirePhysics(a1, a2, a3, a4, a5, fStabilityFactor, fStabilityHackFactor);
+	return FO2TirePhysics(a1, a2, a3, a4, a5, fStabilityFactor, fStabilityHackFactor, fStabilityHackFactor2);
+}
+
+uintptr_t FO2AddrToTirePhysicsAddr(uintptr_t addr) {
+	return (addr - 0x4408D0) + (uintptr_t)aTirePhysicsCode;
+}
+
+void FixupFO2TirePhysicsCode() {
+	// note: a1 20, 21, 22 are 21, 22, 23 in fouc
+
+	NyaHookLib::PatchRelative(NyaHookLib::CALL, FO2AddrToTirePhysicsAddr(0x440D85), 0x443AF0);
+
+	static float flt_67DB74 = 1.0;
+	static float flt_67DC2C = 2.0;
+	static float flt_67E128 = 0.45;
+	static float flt_67DC00 = 0.1;
+	static float flt_67DB6C = 0.0;
+	static float flt_67DCBC = -0.5;
+	static float flt_67DC24 = 4.0;
+	static float flt_67DBB4 = 0.01;
+	static float flt_67DC30 = 100.0;
+	static float flt_67DB78 = 0.5;
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x4408D5), &flt_67DB74);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440D90), &flt_67DB74);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440924 + 2), &flt_67DC2C);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x44094D + 2), &flt_67DC2C);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440937), &flt_67E128);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440962), &flt_67E128);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x44093D), &flt_67DC00);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440968), &flt_67DC00);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440A16), &flt_67DB6C);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440C26), &flt_67DB6C);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440C91), &flt_67DB6C);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440CDD), &flt_67DB6C);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440DE1), &flt_67DB6C);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440B3C), &flt_67DCBC);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440D20), &flt_67DCBC);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440ABA), &flt_67DC24);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440B02), &flt_67DC24);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440C9D), &flt_67DC24);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440CE9), &flt_67DC24);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440DAF), &flt_67DBB4);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440DBD), &flt_67DBB4);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440DCC), &flt_67DC30);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440DF9), &flt_67DB78);
+
+	// switch case jmp
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x4409AF), FO2AddrToTirePhysicsAddr(0x440E5C));
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440A6B), FO2AddrToTirePhysicsAddr(0x440E6C));
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440C4C), FO2AddrToTirePhysicsAddr(0x440E7C));
+
+	// jump tables
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440E5C), FO2AddrToTirePhysicsAddr(0x4409B3));
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440E60), FO2AddrToTirePhysicsAddr(0x440A4F));
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440E64), FO2AddrToTirePhysicsAddr(0x440E19));
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440E68), FO2AddrToTirePhysicsAddr(0x440BC3));
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440E6C), FO2AddrToTirePhysicsAddr(0x440A6F));
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440E70), FO2AddrToTirePhysicsAddr(0x440A88));
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440E74), FO2AddrToTirePhysicsAddr(0x440AD2));
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440E78), FO2AddrToTirePhysicsAddr(0x440B2E));
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440E7C), FO2AddrToTirePhysicsAddr(0x440C50));
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440E80), FO2AddrToTirePhysicsAddr(0x440C69));
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440E84), FO2AddrToTirePhysicsAddr(0x440CB9));
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440E88), FO2AddrToTirePhysicsAddr(0x440D15));
+
+	// some offset
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x44091A), 0x3A8); // 398 -> 3A8
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440920), 0x3A8); // 398 -> 3A8
+
+	// increase some brake-related offset
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440A3E + 2), 0x54);
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440A41 + 2), 0x58);
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440A44 + 2), 0x5C);
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440BA8 + 2), 0x54);
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440BAF + 2), 0x58);
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440BB4 + 2), 0x5C);
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440E3F + 2), 0x50);
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440E48 + 2), 0x54);
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440E4F + 2), 0x5C);
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440D82 + 2), 0x54);
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440DAA + 2), 0x54);
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440DB6 + 2), 0x54);
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440E03 + 2), 0x54);
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440E0B + 2), 0x54);
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440E08 + 2), 0x58);
+	NyaHookLib::Patch<uint8_t>(FO2AddrToTirePhysicsAddr(0x440E0E + 2), 0x5C);
+
+	// environment ptrs
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x4409B3 + 2), 0x8465F0);
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440BC3 + 1), 0x8465F0);
+
+	// some environment ptr offset
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x4409BE), 0x290); // 1B0 -> 290
+	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x440BCD), 0x290); // 1B0 -> 290
+	// surprisingly +20724 remains identical
+
+	// eax -> edi for parameter a1
+	NyaHookLib::Patch<uint16_t>(FO2AddrToTirePhysicsAddr(0x4408DB), 0xF78B);
 }
 
 BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
@@ -280,9 +383,10 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 			auto config = toml::parse_file("FlatOutUCFO2Handling_gcp.toml");
 			fSlidingFactor = config["main"]["slide_factor"].value_or(3.75);
 			fStabilityFactor = config["main"]["stability_factor"].value_or(1.2);
-			fSlidingHackFactor = config["main"]["slide_hack_factor"].value_or(1);
-			fStabilityHackFactor = config["main"]["stability_hack_factor"].value_or(1);
-			bBrakeHack = config["main"]["brake_hack"].value_or(false);
+			fSlidingHackFactor = config["main"]["slide_hack_factor"].value_or(1.0);
+			fStabilityHackFactor = config["main"]["stability_hack_factor"].value_or(1.0);
+			fSlidingHackFactor2 = config["main"]["slide_scalar_hack_factor"].value_or(1.0);
+			fStabilityHackFactor2 = config["main"]["stability_scalar_hack_factor"].value_or(1.0);
 
 			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45EC27, &GetSteeringASM);
 			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45CA68, &SteeringASM);
@@ -312,10 +416,12 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 			NyaHookLib::Patch(0x443FDB + 2, &fBrakePowerMult);
 			NyaHookLib::Patch(0x444064 + 2, &fBrakePowerMult);
 
-			if (bBrakeHack) {
-				// go down a different path for some brake code
-				NyaHookLib::Patch(0x4444EC, 0x443F7D);
-			}
+			FixupFO2TirePhysicsCode();
+
+			DWORD oldProt;
+			VirtualProtect(aTirePhysicsCode, sizeof(aTirePhysicsCode), PAGE_EXECUTE_READWRITE, &oldProt);
+			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x443D40, aTirePhysicsCode);
+
 
 			//NyaHookLib::Patch<float>(0x6F81A0, 0.852 * 3.75);
 			//NyaHookLib::Patch<float>(0x6F8198, 0.714 * 1.2);
