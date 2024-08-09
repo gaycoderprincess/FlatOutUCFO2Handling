@@ -221,6 +221,79 @@ void __attribute__((naked)) FO2ControllerSteeringASM() {
 	);
 }
 
+float fSteerMultTest = 1.33;
+
+uintptr_t SteerMultTest_jmp = 0x429F6D;
+void __attribute__((naked)) SteerMultTest() {
+	__asm__ (
+		"lea eax, %1\n\t"
+		"fld dword ptr [esp+0x10]\n\t"
+		"fmul dword ptr [esp+0x18]\n\t"
+		"fmul dword ptr [eax]\n\t"
+		"fstp dword ptr [esp+0x18]\n\t"
+		"fld dword ptr [esp+0xC]\n\t"
+		"fmul dword ptr [esp+0x14]\n\t"
+		"fmul dword ptr [eax]\n\t"
+		"fstp dword ptr [esp+0x14]\n\t"
+		"jmp %0\n\t"
+			:
+			:  "m" (SteerMultTest_jmp), "m" (fSteerMultTest)
+	);
+}
+
+uintptr_t SteerMultTest2_jmp = 0x429F33;
+void __attribute__((naked)) SteerMultTest2() {
+	__asm__ (
+		"lea eax, %1\n\t"
+		"fld dword ptr [esp+0xC]\n\t"
+		"fmul dword ptr [esp+0x18]\n\t"
+		"fmul dword ptr [eax]\n\t"
+		"fstp dword ptr [esp+0x18]\n\t"
+		"fld dword ptr [esp+0x10]\n\t"
+		"fmul dword ptr [esp+0x14]\n\t"
+		"fmul dword ptr [eax]\n\t"
+		"fstp dword ptr [esp+0x14]\n\t"
+		"jmp %0\n\t"
+			:
+			:  "m" (SteerMultTest2_jmp), "m" (fSteerMultTest)
+	);
+}
+
+double __cdecl FO2TirePhysics(float a1, float a2, float a3, float a4, float a5, float extraMult) {
+	// FOUC behavior:
+	//auto a1 = arg0 * a2;
+	//auto v7 = atan(a1) * a5 + (1.0 - a5) * a1;
+	//auto v8 = atan(v7) * a3;
+	//auto v9 = v8 - 1.570796370506287;
+	//return (cos(v9) * a4);
+
+	//v154 = fabs(v149);
+	//v155 = v154 * v7[3];
+	//CalculateSomeTirePhysicsStuff(v155, 0.852, 2.3, 0.50999999, -2.75);
+
+	//v42 = fabs(v92) * v23[3] * 0.852;
+	//v43 = cos(atan2(3.75 * v42 - atan2(v42, 1.0) * 2.75, 1.0) * 2.3 - 1.5707964) * 0.50999999;
+
+	//CalculateSomeTirePhysicsStuff(v47, 0.71399999, 1.4, 1.0, -0.2);
+	//cos(atan2(1.2 * (v93 * 0.71399999) - atan2(v93 * 0.71399999, 1.0) * 0.2, 1.0) * 1.4 - 1.5707964);
+
+	float aMagicNumber = 1.5;
+
+	auto v42 = a1 * a2;
+	// technically correct, exact FO2 code but doesn't feel right?
+	//return cos(atan2(extraMult * v42 - atan2(v42, 1.0) * -a5, 1.0) * a3 - 1.5707964) * a4;
+	// this feels a lot more FO2-y
+	return cos(atan2(extraMult * v42 - atan2(aMagicNumber * v42, 1.0) * -a5, 1.0) * a3 - 1.5707964) * a4;
+}
+
+double __cdecl FO2TirePhysics1(float a1, float a2, float a3, float a4, float a5) {
+	return FO2TirePhysics(a1, a2, a3, a4, a5, 3.75);
+}
+
+double __cdecl FO2TirePhysics2(float a1, float a2, float a3, float a4, float a5) {
+	return FO2TirePhysics(a1, a2, a3, a4, a5, 1.2);
+}
+
 BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 	switch( fdwReason ) {
 		case DLL_PROCESS_ATTACH: {
@@ -247,10 +320,23 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x42C040, 0x42C046);
 
 			// remove some divisions from steering math
+			// remove division by fFrontMinLength
 			NyaHookLib::Patch<uint16_t>(0x429FBB, 0xD8DD);
 			NyaHookLib::Patch<uint16_t>(0x429FCF, 0xD8DD);
+			// remove division by fRearMinLength
 			NyaHookLib::Patch<uint16_t>(0x42A4A0, 0xD8DD);
 			NyaHookLib::Patch<uint16_t>(0x42A4B4, 0xD8DD);
+
+			//NyaHookLib::Patch<float>(0x6F81A0, 0.852 * 3.75);
+			//NyaHookLib::Patch<float>(0x6F8198, 0.714 * 1.2);
+			//NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x453940, &FO2TirePhysics);
+
+			NyaHookLib::PatchRelative(NyaHookLib::CALL, 0x454CBA, &FO2TirePhysics1); // 3.75
+			NyaHookLib::PatchRelative(NyaHookLib::CALL, 0x454DD4, &FO2TirePhysics2); // 1.2
+			NyaHookLib::PatchRelative(NyaHookLib::CALL, 0x45B90F, &FO2TirePhysics2); // 1.2
+
+			//NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x429F55, &SteerMultTest);
+			//NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x429F1B, &SteerMultTest2);
 
 			static const char* steeringPath = "Data.Physics.Car.Steering_PC";
 			NyaHookLib::Patch(0x45EC22 + 1, steeringPath);
