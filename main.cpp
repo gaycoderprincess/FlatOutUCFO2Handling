@@ -259,7 +259,7 @@ void __attribute__((naked)) SteerMultTest2() {
 	);
 }
 
-double __cdecl FO2TirePhysics(float a1, float a2, float a3, float a4, float a5, float extraMult) {
+double __cdecl FO2TirePhysics(float a1, float a2, float a3, float a4, float a5, float extraMult, float extraMagicNumber) {
 	// FOUC behavior:
 	//auto a1 = arg0 * a2;
 	//auto v7 = atan(a1) * a5 + (1.0 - a5) * a1;
@@ -277,21 +277,26 @@ double __cdecl FO2TirePhysics(float a1, float a2, float a3, float a4, float a5, 
 	//CalculateSomeTirePhysicsStuff(v47, 0.71399999, 1.4, 1.0, -0.2);
 	//cos(atan2(1.2 * (v93 * 0.71399999) - atan2(v93 * 0.71399999, 1.0) * 0.2, 1.0) * 1.4 - 1.5707964);
 
-	float aMagicNumber = 1.5;
-
 	auto v42 = a1 * a2;
 	// technically correct, exact FO2 code but doesn't feel right?
 	//return cos(atan2(extraMult * v42 - atan2(v42, 1.0) * -a5, 1.0) * a3 - 1.5707964) * a4;
 	// this feels a lot more FO2-y
-	return cos(atan2(extraMult * v42 - atan2(aMagicNumber * v42, 1.0) * -a5, 1.0) * a3 - 1.5707964) * a4;
+	return cos(atan2(extraMult * v42 - atan2(extraMagicNumber * v42, 1.0) * -a5, 1.0) * a3 - 1.5707964) * a4;
 }
 
+// +0x1E14 brake torque
+// +0x1E18 handbrake torque
+
+// brakes are written to 0xD60 and 0x1110
+// handbrake is written to 0x14C0 and 0x1870
+// later read in tire func at 004553FC, stored into +0x3C
+
 double __cdecl FO2TirePhysics1(float a1, float a2, float a3, float a4, float a5) {
-	return FO2TirePhysics(a1, a2, a3, a4, a5, 3.75);
+	return FO2TirePhysics(a1, a2, a3, a4, a5, 3.75, 1.5);
 }
 
 double __cdecl FO2TirePhysics2(float a1, float a2, float a3, float a4, float a5) {
-	return FO2TirePhysics(a1, a2, a3, a4, a5, 1.2);
+	return FO2TirePhysics(a1, a2, a3, a4, a5, 1.2, 1);
 }
 
 BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
@@ -326,6 +331,13 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 			// remove division by fRearMinLength
 			NyaHookLib::Patch<uint16_t>(0x42A4A0, 0xD8DD);
 			NyaHookLib::Patch<uint16_t>(0x42A4B4, 0xD8DD);
+
+			static double fBrakePowerMult = 1.0;
+			NyaHookLib::Patch(0x443FDB + 2, &fBrakePowerMult);
+			NyaHookLib::Patch(0x444064 + 2, &fBrakePowerMult);
+
+			// go down a different path for some brake code
+			NyaHookLib::Patch(0x4444EC, 0x443F7D);
 
 			//NyaHookLib::Patch<float>(0x6F81A0, 0.852 * 3.75);
 			//NyaHookLib::Patch<float>(0x6F8198, 0.714 * 1.2);
