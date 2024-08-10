@@ -5,6 +5,11 @@
 #include "fo2brakephys.h"
 #include "fo2tirephys.h"
 
+bool bFO2SmoothSteering = true;
+bool bFO2BrakePhysics = true;
+bool bFO2TirePhysics = true;
+bool bNoSteerSuspensionFactor = true;
+
 void* pDBSteering = nullptr;
 
 // read Steering_PC for all cars
@@ -72,8 +77,8 @@ void WriteSuspensionValues() {
 	*(float*)0x84986C = 0;
 }
 
-uintptr_t SuspensionASM_jmp = 0x45D2A5;
-void __attribute__((naked)) SuspensionASM() {
+uintptr_t HardcodedSuspensionASM_jmp = 0x45D2A5;
+void __attribute__((naked)) HardcodedSuspensionASM() {
 	__asm__ (
 		"mov eax, [edi]\n\t"
 		"mov edx, [eax+0x90]\n\t"
@@ -83,7 +88,7 @@ void __attribute__((naked)) SuspensionASM() {
 		"popad\n\t"
 		"jmp %0\n\t"
 			:
-			:  "m" (SuspensionASM_jmp), "i" (WriteSuspensionValues)
+			:  "m" (HardcodedSuspensionASM_jmp), "i" (WriteSuspensionValues)
 	);
 }
 
@@ -110,10 +115,12 @@ void __fastcall WriteHardcodedSteeringValues(float* f) {
 	fSteeringSpeedRate[2] = f[50];
 	fSteeringSpeedRate[3] = f[51];
 
-	// FO2 overrides some digital steering values after reading the DB, so just using the values from Steering_PC alone won't work
-	f[33] = 0.99; // CenteringSpeed
-	f[35] = 1.5; // MinDigitalSpeed
-	f[36] = 3.5; // MaxDigitalSpeed
+	if (bFO2SmoothSteering) {
+		// FO2 overrides some digital steering values after reading the DB, so just using the values from Steering_PC alone won't work
+		f[33] = 0.99; // CenteringSpeed
+		f[35] = 1.5; // MinDigitalSpeed
+		f[36] = 3.5; // MaxDigitalSpeed
+	}
 }
 
 uintptr_t HardcodedSteeringASM_jmp = 0x45CC32;
@@ -637,39 +644,51 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 				return TRUE;
 			}
 
-			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45EC27, &GetSteeringASM);
-			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45CA68, &SteeringASM);
-			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45D29B, &SuspensionASM);
-			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45CC2A, &HardcodedSteeringASM);
-			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x47CF24, &FO2ControllerSteeringASM);
+			auto config = toml::parse_file("FlatOutUCFO2Handling_gcp.toml");
+			bFO2SmoothSteering = config["main"]["fo2_smooth_steering"].value_or(true);
+			bFO2BrakePhysics = config["main"]["fo2_brake_physics"].value_or(true);
+			bFO2TirePhysics = config["main"]["fo2_tire_physics"].value_or(true);
+			bNoSteerSuspensionFactor = config["main"]["no_steer_suspension_factor"].value_or(true);
 
-			// get sqrt of car speed for max steer angle
-			NyaHookLib::Patch<uint16_t>(0x47D323, 0xFAD9);
-			NyaHookLib::Patch(0x47D2F9 + 2, 0x294);
-			NyaHookLib::Patch(0x47D2FF + 2, 0x290);
-			NyaHookLib::Patch(0x47D313 + 2, 0x298);
+			if (bFO2SmoothSteering) {
+				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45EC27, &GetSteeringASM);
+				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45CA68, &SteeringASM);
+				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x47CF24, &FO2ControllerSteeringASM);
+
+				// get sqrt of car speed for max steer angle
+				NyaHookLib::Patch<uint16_t>(0x47D323, 0xFAD9);
+				NyaHookLib::Patch(0x47D2F9 + 2, 0x294);
+				NyaHookLib::Patch(0x47D2FF + 2, 0x290);
+				NyaHookLib::Patch(0x47D313 + 2, 0x298);
+			}
+			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45CC2A, &HardcodedSteeringASM);
+			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45D29B, &HardcodedSuspensionASM);
 
 			// skip new multipliers in the handling code
 			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x42B7B7, 0x42B7C5);
 			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x42C040, 0x42C046);
 
-			// remove some divisions from steering math
-			// remove division by fFrontMinLength
-			NyaHookLib::Patch<uint16_t>(0x429FBB, 0xD8DD);
-			NyaHookLib::Patch<uint16_t>(0x429FCF, 0xD8DD);
-			// remove division by fRearMinLength
-			NyaHookLib::Patch<uint16_t>(0x42A4A0, 0xD8DD);
-			NyaHookLib::Patch<uint16_t>(0x42A4B4, 0xD8DD);
+			if (bNoSteerSuspensionFactor) {
+				// remove some divisions from steering math
+				// remove division by fFrontMinLength
+				NyaHookLib::Patch<uint16_t>(0x429FBB, 0xD8DD);
+				NyaHookLib::Patch<uint16_t>(0x429FCF, 0xD8DD);
+				// remove division by fRearMinLength
+				NyaHookLib::Patch<uint16_t>(0x42A4A0, 0xD8DD);
+				NyaHookLib::Patch<uint16_t>(0x42A4B4, 0xD8DD);
+			}
 
 			DWORD oldProt;
-
-			FixupFO2BrakePhysicsCode();
-			VirtualProtect(aBrakePhysicsCode, sizeof(aBrakePhysicsCode), PAGE_EXECUTE_READWRITE, &oldProt);
-			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x443D40, aBrakePhysicsCode);
-
-			FixupFO2TirePhysicsCode();
-			VirtualProtect(aTirePhysicsCode, sizeof(aTirePhysicsCode), PAGE_EXECUTE_READWRITE, &oldProt);
-			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x454320, aTirePhysicsCode);
+			if (bFO2BrakePhysics) {
+				FixupFO2BrakePhysicsCode();
+				VirtualProtect(aBrakePhysicsCode, sizeof(aBrakePhysicsCode), PAGE_EXECUTE_READWRITE, &oldProt);
+				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x443D40, aBrakePhysicsCode);
+			}
+			if (bFO2TirePhysics) {
+				FixupFO2TirePhysicsCode();
+				VirtualProtect(aTirePhysicsCode, sizeof(aTirePhysicsCode), PAGE_EXECUTE_READWRITE, &oldProt);
+				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x454320, aTirePhysicsCode);
+			}
 
 			static const char* steeringPath = "Data.Physics.Car.Steering_PC";
 			NyaHookLib::Patch(0x45EC22 + 1, steeringPath);
