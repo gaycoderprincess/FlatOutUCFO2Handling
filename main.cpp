@@ -5,11 +5,13 @@
 #include "fo2brakephys.h"
 #include "fo2tirephys.h"
 #include "fo2playerinput.h"
+#include "fo2slidecontrol.h"
 
 bool bFO2SmoothSteering = true;
 bool bFO2SteerLock = true;
 bool bFO2BrakePhysics = true;
 bool bFO2TirePhysics = true;
+bool bFO2SlideControl = true;
 bool bNoSteerSuspensionFactor = true;
 
 void* pDBSteering = nullptr;
@@ -252,48 +254,6 @@ uintptr_t FO2AddrToTirePhysicsAddr(uintptr_t addr) {
 }
 
 void FixupFO2TirePhysicsCode() {
-	// this ptr:
-	// 0x210 -> 0x220//
-	// 0x214 not read
-	// 0x218 not read
-	// 0x21C -> 0x22C//
-	// 0x220 -> 0x230//
-	// 0x224 -> 0x234//
-	// 0x228 -> 0x238//
-	// 0x22C not read
-	// 0x230 -> 0x240//
-	// 0x234 -> 0x244//
-	// 0x238 -> 0x248//
-	// 0x23C not read
-	// 0x240 -> 0x250//
-	// 0x244 -> 0x254//
-	// 0x248 not read
-	// 0x24C not read
-	// 0x250 -> 0x260//
-	// 0x254 -> 0x264//
-	// 0x258 -> 0x268//
-	// 0x25C -> 0x26C//
-	// 0x260 not read
-	// 0x264 not read
-	// 0x268 -> 0x278//
-	// 0x26C -> 0x27C//
-	// 0x270 -> 0x280//
-	// 0x274 -> 0x284//
-	// 0x278 -> 0x288//
-	// 0x27C -> 0x28C//
-	// 0x280 -> 0x290//
-	// 0x284 -> 0x294//
-	// 0x288 -> 0x298//
-	// 0x28C -> 0x29C//
-	// 0x290 -> 0x2A0//
-	// 0x294 -> 0x2A4//
-	// 0x298 -> 0x2A8//
-	// 0x29C -> 0x2AC//
-	// 0x2A0 -> 0x2B0//
-	// 0x2A4 -> 0x2B4//
-	// 0x2A8 -> 0x2B8//
-	// 0x210->0x1B0 -> 0x220->0x1C0//
-
 	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x44E0FC), 0x22C); // 21C -> 22C
 	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x44E103), 0x220); // 210 -> 220
 	NyaHookLib::Patch(FO2AddrToTirePhysicsAddr(0x44E111), 0x254); // 244 -> 254
@@ -638,32 +598,6 @@ void FixupFO2SmoothSteeringCode() {
 		NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(addr), &flt_67DB74);
 	}
 
-	// +0x280 -> +0x290//
-
-	// 0x32C -> 0x284//
-	// 0x33C -> 0x294//
-	// 0x64C -> 0x8A0//
-	// 0x650 -> 0x8A4//
-	// 0x654 -> 0x8A8//
-	// 0x658 -> 0x8AC//
-	// 0x65C -> 0x8B4//
-	// 0x668 -> 0x8BC//
-	// 0x66C -> 0x8C0//
-	// 0x670 -> 0x8C4//
-	// 0x674 -> 0x8C8//
-	// 0x678 -> 0x8C8// // todo wtf?
-	// 0x684 -> 0x8CC//
-	// 0x688 -> 0x8D0//
-	// 0x68C -> 0x8D4//
-	// 0x690 -> 0x8DC//
-	// 0x694 -> 0x8D8//
-	// 0x698 -> 0x8E0//
-	// 0x6B0 -> 0x8F8//
-	// 0x6B8 -> 0x90C//
-
-	// 65C 690 -> 8B0 8D8
-	// 660 694 -> 8B4 8DC
-
 	// todo, this is a multiplier with a value that doesn't exist
 	// was hacked in previously with [413] - [414] (pCar[561] - pCar[562])
 	NyaHookLib::Fill(FO2AddrToSmoothSteeringAddr(0x46F70B), 0x90, 0x46F711 - 0x46F70B);
@@ -767,10 +701,138 @@ void FixupFO2SmoothSteeringCode() {
 	NyaHookLib::PatchRelative(NyaHookLib::CALL, FO2AddrToSmoothSteeringAddr(0x46FA34), 0x47D2B0);
 }
 
+uintptr_t FO2AddrToSlideControlAddr(uintptr_t addr) {
+	return (addr - 0x429BE0) + (uintptr_t)aSlideControlCode;
+}
+
+void FixupFO2SlideControlCode() {
+	// 0x1E00 -> 0x1F1C
+	// 0xD34 -> 0xD74
+	// 0xD48 -> 0xD88
+	// 0x10D4 -> 0x1124
+	// 0x10E8 -> 0x1138
+	// 0x1474 -> 0x14D4
+	// 0x1488 -> 0x14E8
+	// 0x1814 -> 0x1884
+	// 0x1828 -> 0x1898
+	// 0x280 -> 0x290
+	// 0x284 -> 0x294
+	// 0x288 -> 0x298
+	// 0x1DF4 -> 0x1F10
+	// 0x1DF8 -> 0x1F14
+	// 0x1E04 -> 0x1F20
+	// 0x1DD4 -> 0x1EEC
+	// 0x26C -> 0x27C
+	// 0xA78 -> 0xAA8
+	// 0x1B0 -> 0x1C0
+	// 0x1B4 -> 0x1C4
+	// 0x1B8 -> 0x1C8
+	// 0x1C0 -> 0x1D0
+	// 0x1C4 -> 0x1D4
+	// 0x1C8 -> 0x1D8
+	// 0x1D0 -> 0x1E0
+	// 0x1D4 -> 0x1E4
+	// 0x1D8 -> 0x1E8
+	// 0x2A0 -> 0x2B0
+	// 0x2A4 -> 0x2B4
+	// 0x2A8 -> 0x2B8
+	// 0x2B0 -> 0x2C0
+	// 0x2B4 -> 0x2C4
+	// 0x2B8 -> 0x2C8
+	// 0x1C98 -> 0x1D40
+	// 0x1DE4 -> 0x1EFC
+	// 0xA40 -> 0xA70
+	// 0xA44 -> 0xA74
+	// 0xA48 -> 0xA78
+	// 0x1520 -> 0x1580
+	// 0x1524 -> 0x1584
+	// 0x1528 -> 0x1588
+	// 0x1CE0 -> 0x1DE0
+	// 0x1CE4 -> 0x1DE4
+	// 0x1CEC -> 0x1DEC
+	// 0x5C4 -> 0x5E4 maybe?
+	// 0x5C8 -> 0x5E8
+	// 0x5CC -> 0x5EC maybe?
+	// 0x1DFC -> 0x1F18
+	// 0x648 -> 0x668
+	// 0x6E4 -> 0x704
+	// 0x5D8 -> 0x5F8
+	// 0x634 -> 0x654
+	// 0x2BC -> 0x2CC
+	// 0x9DC -> 0xA08
+	// 0xCFC -> 0xD3C
+	// 0x17DC -> 0x184C
+
+	// 0x1DD8 is antispinmultiplier, fouc only
+
+	NyaHookLib::PatchRelative(NyaHookLib::CALL, FO2AddrToSlideControlAddr(0x42B396), 0x4450F0);
+
+	static float flt_67DB9C = 0.75;
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x429C27), &flt_67DB9C);
+	static float flt_67DB78 = 0.5;
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x429CB4), &flt_67DB78);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x42AFF5), &flt_67DB78);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x42B1CE), &flt_67DB78);
+	static float flt_67DBA8 = 0.05;
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x42AAF3), &flt_67DBA8);
+	static float flt_67DC38 = -9.8100004;
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x42ABA9), &flt_67DC38);
+	static float flt_67DE74 = 5.0;
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x42AF3C), &flt_67DE74);
+	static float flt_67DBD8 = 0.001;
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x42B35A), &flt_67DBD8);
+	static float flt_67DDD0 = 9.8100004;
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x42B3C5), &flt_67DDD0);
+	uintptr_t aflt_67DB6C[] = {
+		0x429BF0,
+		0x429E1A,
+		0x42A8FD,
+		0x42B166,
+		0x42B33F,
+	};
+	static float flt_67DB6C = 0.0;
+	for (auto& addr : aflt_67DB6C) {
+		NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(addr), &flt_67DB6C);
+	}
+	uintptr_t aflt_67DB74[] = {
+		0x429C2D,
+		0x429E4E,
+		0x429E68,
+		0x429E78,
+		0x42A0B8,
+		0x42A151,
+		0x42A5C7,
+		0x42A84F,
+		0x42A855,
+		0x42A864,
+		0x42AB26,
+		0x42AB69,
+		0x42AF69,
+	};
+	static float flt_67DB74 = 1.0;
+	for (auto& addr : aflt_67DB74) {
+		NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(addr), &flt_67DB74);
+	}
+	uintptr_t aflt_67DBA0[] = {
+		0x429CCD,
+		0x429D24,
+		0x429D80,
+		0x429DD0,
+		0x429EC1,
+	};
+	static float flt_67DBA0 = 0.25;
+	for (auto& addr : aflt_67DBA0) {
+		NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(addr), &flt_67DBA0);
+	}
+}
+
 double __cdecl FO2TirePhysicsMath(float a1, float a2, float a3, float a4, float a5) {
 	auto v42 = a1 * a2;
 	return cos(atan2(1.2 * v42 - atan2(v42, 1.0) * -a5, 1.0) * a3 - 1.5707964) * a4;
 }
+
+// todo 429E70
+// todo 42D650
 
 BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 	switch( fdwReason ) {
@@ -786,6 +848,7 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 			bFO2SmoothSteering = config["main"]["fo2_smooth_steering"].value_or(true);
 			bFO2BrakePhysics = config["main"]["fo2_brake_physics"].value_or(true);
 			bFO2TirePhysics = config["main"]["fo2_tire_physics"].value_or(true);
+			bFO2SlideControl = config["main"]["fo2_slide_control"].value_or(true);
 			bNoSteerSuspensionFactor = config["main"]["no_steer_suspension_factor"].value_or(true);
 
 			if (bFO2SteerLock) {
@@ -832,6 +895,11 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 				FixupFO2SmoothSteeringCode();
 				VirtualProtect(aSmoothSteeringCode, sizeof(aSmoothSteeringCode), PAGE_EXECUTE_READWRITE, &oldProt);
 				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x47CCF0, aSmoothSteeringCode);
+			}
+			if (bFO2SlideControl) {
+				FixupFO2SlideControlCode();
+				VirtualProtect(aSlideControlCode, sizeof(aSlideControlCode), PAGE_EXECUTE_READWRITE, &oldProt);
+				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x42B4A0, aSlideControlCode);
 			}
 
 			static const char* steeringPath = "Data.Physics.Car.Steering_PC";
