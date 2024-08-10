@@ -749,10 +749,14 @@ void FixupFO2SmoothSteeringCode() {
 	// 0x698 -> 0x8E0//
 	// 0x6B0 -> 0x8F8//
 	// 0x6B8 -> 0x90C//
-	
+
 	// 65C 690 -> 8B0 8D8
 	// 660 694 -> 8B4 8DC
 
+	// todo, this is a multiplier with a value that doesn't exist
+	NyaHookLib::Fill(FO2AddrToSmoothSteeringAddr(0x46F70B), 0x90, 0x46F711 - 0x46F70B);
+
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F707), 0x314); // 3B8 -> 314
 	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F6D7), 0x290); // +0x280 -> +0x290
 	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F6B6), 0x284); // 32C -> 284
 	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F6CC), 0x294); // 33C -> 294
