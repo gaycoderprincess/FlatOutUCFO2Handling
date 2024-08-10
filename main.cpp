@@ -779,7 +779,6 @@ void FixupFO2SlideControlCode() {
 	// -0x308 - 0x40 matrix begin, same in fouc
 	// +0x30 - 0x378 in the +F0 struct at +0x288, +0x10 in fouc
 	// ptr at +0, offsets +0x44 and 0x48, seems to be +0x10 in fouc
-
 	// currently adding +0x10
 
 	// fo2 wheels actually begin at 0xA00
@@ -792,6 +791,15 @@ void FixupFO2SlideControlCode() {
 	ReplaceFO2SlideControlOffset(-0x2D0, -0x2D0 - 0x10);
 	ReplaceFO2SlideControlOffset(-0x2D8, -0x2D8 - 0x10);
 	ReplaceFO2SlideControlOffset(-0x308, -0x308 - 0x10);
+
+	// 0x1DE0 -> 0x94+0xC off handling, fArcadeSteerBalanceRate_2, same as fouc, 0x1EF8 in fouc
+	// 0x1DD8 -> 0x94+0x4 off handling, fArcadeSteerBalanceFactor_2, same as fouc, 0x1EF0 in fouc
+	// 0x1DDC -> 0x94+0x8 off handling, fArcadeSteerBalanceRate_1, same as fouc, 0x1EF4 in fouc
+	// 0x1E0C -> 0x1F28, seems to always be 100.0 in both games
+	ReplaceFO2SlideControlOffset(0x1DD8, 0x1EF0);
+	ReplaceFO2SlideControlOffset(0x1DDC, 0x1EF4);
+	ReplaceFO2SlideControlOffset(0x1DE0, 0x1EF8);
+	ReplaceFO2SlideControlOffset(0x1E0C, 0x1F28);
 
 	ReplaceFO2SlideControlOffset(0x1E00, 0x1F1C);
 	ReplaceFO2SlideControlOffset(0xD34, 0xD74);
@@ -850,7 +858,7 @@ void FixupFO2SlideControlCode() {
 	ReplaceFO2SlideControlOffset(0xCFC, 0xD3C);
 	ReplaceFO2SlideControlOffset(0x17DC, 0x184C);
 
-	NyaHookLib::PatchRelative(NyaHookLib::JMP, FO2AddrToSlideControlAddr(0x42A7F5), FO2AddrToSlideControlAddr(0x42AA69));
+	//NyaHookLib::PatchRelative(NyaHookLib::JMP, FO2AddrToSlideControlAddr(0x42A7F5), FO2AddrToSlideControlAddr(0x42AA69));
 	//NyaHookLib::PatchRelative(NyaHookLib::JMP, FO2AddrToSlideControlAddr(0x429E70), FO2AddrToSlideControlAddr(0x42ABED));
 
 	NyaHookLib::PatchRelative(NyaHookLib::CALL, FO2AddrToSlideControlAddr(0x42B396), 0x4450F0);
