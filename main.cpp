@@ -4,8 +4,10 @@
 #include "nya_commonhooklib.h"
 #include "fo2brakephys.h"
 #include "fo2tirephys.h"
+#include "fo2playerinput.h"
 
 bool bFO2SmoothSteering = true;
+bool bFO2SteerLock = true;
 bool bFO2BrakePhysics = true;
 bool bFO2TirePhysics = true;
 bool bNoSteerSuspensionFactor = true;
@@ -97,15 +99,28 @@ float fMinAnalogSpeed = 0.1;
 float fMaxAnalogSpeed = 2;
 float fMinAtDelta = 1;
 float fMaxAtDelta = 2;
+float fCenteringSpeed = 0.99;
+float fMinDigitalSpeed = 1.5;
+float fMaxDigitalSpeed = 3.5;
 float fSteeringSpeedRate[4] = { 2, 2, 2, 2 };
 float fSteeringLimitSpeed[4] = { 20, 40, 100, 250 };
 
 void __fastcall WriteHardcodedSteeringValues(float* f) {
+	if (bFO2SmoothSteering) {
+		// FO2 overrides some digital steering values after reading the DB, so just using the values from Steering_PC alone won't work
+		f[33] = 0.99; // CenteringSpeed
+		f[35] = 1.5; // MinDigitalSpeed
+		f[36] = 3.5; // MaxDigitalSpeed
+	}
+
 	fSensitivity = f[28];
 	fMaxAnalogSpeed = f[29];
 	fMinAnalogSpeed = f[30];
 	fMinAtDelta = f[31];
 	fMaxAtDelta = f[32];
+	fCenteringSpeed = f[33];
+	fMinDigitalSpeed = f[35];
+	fMaxDigitalSpeed = f[36];
 	fSteeringLimitSpeed[0] = f[44];
 	fSteeringLimitSpeed[1] = f[45];
 	fSteeringLimitSpeed[2] = f[46];
@@ -114,13 +129,6 @@ void __fastcall WriteHardcodedSteeringValues(float* f) {
 	fSteeringSpeedRate[1] = f[49];
 	fSteeringSpeedRate[2] = f[50];
 	fSteeringSpeedRate[3] = f[51];
-
-	if (bFO2SmoothSteering) {
-		// FO2 overrides some digital steering values after reading the DB, so just using the values from Steering_PC alone won't work
-		f[33] = 0.99; // CenteringSpeed
-		f[35] = 1.5; // MinDigitalSpeed
-		f[36] = 3.5; // MaxDigitalSpeed
-	}
 }
 
 uintptr_t HardcodedSteeringASM_jmp = 0x45CC32;
@@ -635,6 +643,214 @@ void FixupFO2TirePhysicsCode() {
 	// negative offsets are identical
 }
 
+uintptr_t FO2AddrToSmoothSteeringAddr(uintptr_t addr) {
+	return (addr - 0x46F510) + (uintptr_t)aSmoothSteeringCode;
+}
+
+uintptr_t InputCallConventionASM_jmp = FO2AddrToSmoothSteeringAddr(0x46FA28);
+void __attribute__((naked)) InputCallConventionASM() {
+	__asm__ (
+		"mov edx, [esp+0x30]\n\t"
+		"fsub st, st(1)\n\t"
+		"push edx\n\t"
+		"mov esi, ecx\n\t" // push ecx -> mov esi, ecx
+		"jmp %0\n\t"
+			:
+			:  "m" (InputCallConventionASM_jmp)
+	);
+}
+
+void FixupFO2SmoothSteeringCode() {
+	NyaHookLib::PatchRelative(NyaHookLib::JMP, FO2AddrToSmoothSteeringAddr(0x46FA20), &InputCallConventionASM);
+
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F614), &fCenteringSpeed);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F683), &fMinDigitalSpeed);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F689), &fMaxDigitalSpeed);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F725), &fSensitivity);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F751), &fMinAnalogSpeed);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F75B), &fMaxAnalogSpeed);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F7A1), &fSteeringLimitSpeed[3]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F7D6), &fSteeringLimitSpeed[3]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F7D0), &fSteeringLimitSpeed[2]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F7DC), &fSteeringLimitSpeed[2]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F80E), &fSteeringLimitSpeed[2]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F7F7), &fSteeringLimitSpeed[1]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F808), &fSteeringLimitSpeed[1]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F814), &fSteeringLimitSpeed[1]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F847), &fSteeringLimitSpeed[1]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F830), &fSteeringLimitSpeed[0]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F841), &fSteeringLimitSpeed[0]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F84D), &fSteeringLimitSpeed[0]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F865), &fSteeringLimitSpeed[0]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F7B0), &fSteeringSpeedRate[3]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F899), &fSteeringSpeedRate[3]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F7BF), &fSteeringSpeedRate[2]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F88F), &fSteeringSpeedRate[2]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F87B), &fSteeringSpeedRate[1]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F885), &fSteeringSpeedRate[0]);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F8B9), &fMinAtDelta);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F8C9), &fMaxAtDelta);
+
+	static float flt_67DC24 = 4.0;
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F537), &flt_67DC24);
+	static float flt_67DBE8 = 10.0;
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F545), &flt_67DBE8);
+	static float flt_67DE74 = 5.0;
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F56B), &flt_67DE74);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F59F), &flt_67DE74);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F5BD), &flt_67DE74);
+	static float flt_67DB6C = 0.0;
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F797), &flt_67DB6C);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F8D9), &flt_67DB6C);
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F8E8), &flt_67DB6C);
+	static float flt_67DC5C = 1000.0;
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F6E9), &flt_67DC5C);
+	static float flt_67DD6C = 3.6;
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F78D), &flt_67DD6C);
+	static float flt_67DC84 = -1.0;
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F9EA), &flt_67DC84);
+	uintptr_t aflt_67DB74[] = {
+		0x46F608,
+		0x46F677,
+		0x46F71F,
+		0x46F733,
+		0x46F7E8,
+		0x46F81C,
+		0x46F859,
+		0x46F86B,
+		0x46F8F0,
+		0x46F8FF,
+		0x46FA09,
+	};
+	static float flt_67DB74 = 1.0;
+	for (auto& addr : aflt_67DB74) {
+		NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(addr), &flt_67DB74);
+	}
+
+	// +0x280 -> +0x290//
+
+	// 0x32C -> 0x284//
+	// 0x33C -> 0x294//
+	// 0x64C -> 0x8A0//
+	// 0x650 -> 0x8A4//
+	// 0x654 -> 0x8A8//
+	// 0x658 -> 0x8AC//
+	// 0x65C -> 0x8B4//
+	// 0x668 -> 0x8BC//
+	// 0x66C -> 0x8C0//
+	// 0x670 -> 0x8C4//
+	// 0x674 -> 0x8C8//
+	// 0x678 -> 0x8C8// // todo wtf?
+	// 0x684 -> 0x8CC//
+	// 0x688 -> 0x8D0//
+	// 0x68C -> 0x8D4//
+	// 0x690 -> 0x8DC//
+	// 0x694 -> 0x8D8//
+	// 0x698 -> 0x8E0//
+	// 0x6B0 -> 0x8F8//
+	// 0x6B8 -> 0x90C//
+	
+	// 65C 690 -> 8B0 8D8
+	// 660 694 -> 8B4 8DC
+
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F6D7), 0x290); // +0x280 -> +0x290
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F6B6), 0x284); // 32C -> 284
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F6CC), 0x294); // 33C -> 294
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F5EC), 0x8A0); // 64C -> 8A0
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F5FB), 0x8A4); // 650 -> 8A4
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F529), 0x8A8); // 654 -> 8A8
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F55F), 0x8AC); // 658 -> 8AC
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F587), 0x8B0); // 65C -> 8B0
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F5D3), 0x8BC); // 668 -> 8BC
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F512), 0x8C0); // 66C -> 8C0
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F557), 0x8C4); // 670 -> 8C4
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F968), 0x8C8); // 674 -> 8C8
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F6C6), 0x8C8); // 678 -> 8C8 todo
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F713), 0x8C8); // 678 -> 8C8 todo
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F719), 0x8C8); // 678 -> 8C8 todo
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F6D2), 0x8F8); // 6B0 -> 8F8
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46FA2E), 0x90C); // 6B8 -> 90C
+
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F5AB), 0x8B4); // 660 -> 8B4
+
+	uintptr_t a684Addresses[] = {
+		0x46F518,
+		0x46F645,
+		0x46F64B,
+		0x46F656,
+		0x46F6A1,
+		0x46F6A9,
+		0x46F73F,
+		0x46F95A,
+		0x46F960,
+		0x46F96E,
+		0x46F9E4,
+		0x46F9F7,
+		0x46FA03,
+		0x46FA16,
+		0x46FA1C,
+	};
+	for (auto& addr : a684Addresses) {
+		NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(addr), 0x8CC); // 684 -> 8CC
+	}
+	uintptr_t a688Addresses[] = {
+		0x46F53D,
+		0x46F54B,
+		0x46F551,
+		0x46F974,
+		0x46F97E,
+		0x46F98A,
+	};
+	for (auto& addr : a688Addresses) {
+		NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(addr), 0x8D0); // 688 -> 8D0
+	}
+	uintptr_t a68CAddresses[] = {
+		0x46F573,
+		0x46F57B,
+		0x46F581,
+		0x46F990,
+		0x46F99A,
+		0x46F9A6,
+	};
+	for (auto& addr : a68CAddresses) {
+		NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(addr), 0x8D4); // 68C -> 8D4
+	}
+	uintptr_t a690Addresses[] = {
+		0x46F597,
+		0x46F5A5,
+		0x46F5B1,
+		0x46F9C8,
+		0x46F9D2,
+		0x46F9DE,
+	};
+	for (auto& addr : a690Addresses) {
+		NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(addr), 0x8D8); // 690 -> 8D8
+	}
+	uintptr_t a694Addresses[] = {
+		0x46F5C5,
+		0x46F5CD,
+		0x46F5D9,
+		0x46F9AC,
+		0x46F9B6,
+		0x46F9C2,
+	};
+	for (auto& addr : a694Addresses) {
+		NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(addr), 0x8DC); // 694 -> 8DC
+	}
+	uintptr_t a698Addresses[] = {
+		0x46F60E,
+		0x46F65E,
+		0x46F66B,
+		0x46F67D,
+		0x46F68F,
+	};
+	for (auto& addr : a698Addresses) {
+		NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(addr), 0x8E0); // 698 -> 8E0
+	}
+
+	NyaHookLib::PatchRelative(NyaHookLib::CALL, FO2AddrToSmoothSteeringAddr(0x46FA34), 0x47D2B0);
+}
+
 BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 	switch( fdwReason ) {
 		case DLL_PROCESS_ATTACH: {
@@ -645,16 +861,13 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 			}
 
 			auto config = toml::parse_file("FlatOutUCFO2Handling_gcp.toml");
+			bFO2SteerLock = config["main"]["fo2_steering_lock"].value_or(true);
 			bFO2SmoothSteering = config["main"]["fo2_smooth_steering"].value_or(true);
 			bFO2BrakePhysics = config["main"]["fo2_brake_physics"].value_or(true);
 			bFO2TirePhysics = config["main"]["fo2_tire_physics"].value_or(true);
 			bNoSteerSuspensionFactor = config["main"]["no_steer_suspension_factor"].value_or(true);
 
-			if (bFO2SmoothSteering) {
-				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45EC27, &GetSteeringASM);
-				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45CA68, &SteeringASM);
-				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x47CF24, &FO2ControllerSteeringASM);
-
+			if (bFO2SteerLock) {
 				// get sqrt of car speed for max steer angle
 				NyaHookLib::Patch<uint16_t>(0x47D323, 0xFAD9);
 				NyaHookLib::Patch(0x47D2F9 + 2, 0x294);
@@ -688,6 +901,14 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 				FixupFO2TirePhysicsCode();
 				VirtualProtect(aTirePhysicsCode, sizeof(aTirePhysicsCode), PAGE_EXECUTE_READWRITE, &oldProt);
 				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x454320, aTirePhysicsCode);
+			}
+			if (bFO2SmoothSteering) {
+				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45EC27, &GetSteeringASM);
+				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45CA68, &SteeringASM);
+
+				FixupFO2SmoothSteeringCode();
+				VirtualProtect(aSmoothSteeringCode, sizeof(aSmoothSteeringCode), PAGE_EXECUTE_READWRITE, &oldProt);
+				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x47CCF0, aSmoothSteeringCode);
 			}
 
 			static const char* steeringPath = "Data.Physics.Car.Steering_PC";
