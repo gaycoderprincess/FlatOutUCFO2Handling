@@ -2,5 +2,8 @@
 # enjoy, nya~ :3
 
 [main]
-fo2_brake_physics = true
-fo2_tire_physics = true
+fo2_steering_lock = true				# Use the FO2 algorithm for the max steering angle based on speed
+fo2_smooth_steering = true				# Use the FO2 code for reading vehicle inputs
+fo2_brake_physics = true				# Use the FO2 code for processing brake behavior
+fo2_tire_physics = true					# Use the FO2 code for processing tire physics
+no_steer_suspension_factor = true			# Makes the game no longer divide the steering angle by suspension FrontMinLength and RearMinLength
