@@ -65,6 +65,10 @@ void __attribute__((naked)) GetSteeringASM() {
 // CompressionMaxCorrection read at 42D95D
 // DecompressionSpeed read at 42D974
 
+// handbrake is written from car to physics at sub_42C540
+// 0x1460 0x1800 -> 0x14C0 0x1870
+// only changes in this function are brake damage related i think
+
 void WriteSuspensionValues() {
 	// CompressionToleranceSpeed
 	*(float*)0x849858 = 2;
@@ -143,99 +147,6 @@ void __attribute__((naked)) HardcodedSteeringASM() {
 		"jmp %0\n\t"
 			:
 			:  "m" (HardcodedSteeringASM_jmp), "i" (WriteHardcodedSteeringValues)
-	);
-}
-
-// todo clean this up, this is awful
-// FO2's smooth steering algorithm for controllers
-void __fastcall FO2ControllerSteering(float* pCar, uint32_t a2_) {
-	auto pCarPtr = (uintptr_t)pCar;
-	auto a2 = *(float*)&a2_;
-
-	// [574] - [428]
-	// [562] - [414]
-	// [561] - [415], guessed, [413] - [414]
-	// [563] - [417]
-	// 0x294 - 0x294
-	// 0x314 - 0x3B8
-
-	auto f415 = pCar[561] - pCar[562];
-
-	auto v16 = pCar[562];
-	auto vVelocity_ = *(uintptr_t*)(pCarPtr + 0x294);
-	pCar[574] = pCar[562];
-	vVelocity_ += 0x290;
-	auto vVelocity = (float*)vVelocity_;
-	auto v37 = 0.0;
-	auto v38 = 0.0;
-	auto v39 = 0.0;
-	pCar[562] = a2 * 1000.0 / *(int32_t*)(pCarPtr + 0x314) * f415 + pCar[562];
-	auto v15 = v16 * v16 * v16 * (1.0 - fSensitivity) + (1.0 - (1.0 - fSensitivity)) * v16 - pCar[563];
-	auto fMaxSpeedFactor = fMaxAnalogSpeed * a2;
-	auto fCarSpeed = std::sqrt(vVelocity[0] * vVelocity[0] + vVelocity[1] * vVelocity[1] + vVelocity[2] * vVelocity[2]) * 3.6;
-	auto v18 = 0.0;
-	auto v19 = 0.0;
-	auto v23 = 0.0;
-	if (fCarSpeed < fSteeringLimitSpeed[3]) {
-		if (fCarSpeed < fSteeringLimitSpeed[2]) {
-			if (fCarSpeed < fSteeringLimitSpeed[1]) {
-				if (fCarSpeed < fSteeringLimitSpeed[0]) {
-					v18 = fCarSpeed / fSteeringLimitSpeed[0];
-					v39 = 1.0 - v18;
-				} else {
-					v37 = (fCarSpeed - fSteeringLimitSpeed[0]) / (fSteeringLimitSpeed[1] - fSteeringLimitSpeed[0]);
-					v18 = 1.0 - v37;
-				}
-				v23 = 0.0;
-			} else {
-				v23 = (fCarSpeed - fSteeringLimitSpeed[1]) / (fSteeringLimitSpeed[2] - fSteeringLimitSpeed[1]);
-				v37 = 1.0 - v23;
-			}
-		} else {
-			v38 = (fCarSpeed - fSteeringLimitSpeed[2]) / (fSteeringLimitSpeed[3] - fSteeringLimitSpeed[2]);
-			v23 = 1.0 - v38;
-		}
-		v19 = fSteeringSpeedRate[1] * v37
-			  + fSteeringSpeedRate[0] * v18
-			  + fSteeringSpeedRate[2] * v23
-			  + fSteeringSpeedRate[3] * v38
-			  + v39;
-	} else {
-		v19 = fSteeringSpeedRate[3];
-	}
-	auto v34 = fMaxSpeedFactor * v19;
-	auto v27 = fMinAnalogSpeed * a2 * v19;
-	auto v28 = (std::abs(v15) - fMinAtDelta * a2) / (fMaxAtDelta * a2 - fMinAtDelta * a2);
-	if (v28 < 0.0) {
-		v28 = 0.0;
-	}
-	else if (v28 > 1.0) {
-		v28 = 1.0;
-	}
-	auto v35 = (v34 - v27) * v28 + v27;
-	if (v35 >= fMaxSpeedFactor) {
-		v35 = fMaxAnalogSpeed * a2;
-	}
-	if (v15 > v35) {
-		v15 = v35;
-	}
-	if (v15 < -v35) {
-		v15 = -v35;
-	}
-	pCar[563] = v15 + pCar[563];
-}
-
-uintptr_t FO2ControllerSteeringASM_jmp = 0x47D1CC;
-void __attribute__((naked)) FO2ControllerSteeringASM() {
-	__asm__ (
-		"pushad\n\t"
-		"mov ecx, esi\n\t"
-		"mov edx, [ebp+8]\n\t"
-		"call %1\n\t"
-		"popad\n\t"
-		"jmp %0\n\t"
-			:
-			:  "m" (FO2ControllerSteeringASM_jmp), "i" (FO2ControllerSteering)
 	);
 }
 
@@ -754,6 +665,7 @@ void FixupFO2SmoothSteeringCode() {
 	// 660 694 -> 8B4 8DC
 
 	// todo, this is a multiplier with a value that doesn't exist
+	// was hacked in previously with [413] - [414] (pCar[561] - pCar[562])
 	NyaHookLib::Fill(FO2AddrToSmoothSteeringAddr(0x46F70B), 0x90, 0x46F711 - 0x46F70B);
 
 	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F707), 0x314); // 3B8 -> 314
@@ -855,6 +767,11 @@ void FixupFO2SmoothSteeringCode() {
 	NyaHookLib::PatchRelative(NyaHookLib::CALL, FO2AddrToSmoothSteeringAddr(0x46FA34), 0x47D2B0);
 }
 
+double __cdecl FO2TirePhysicsMath(float a1, float a2, float a3, float a4, float a5) {
+	auto v42 = a1 * a2;
+	return cos(atan2(1.2 * v42 - atan2(v42, 1.0) * -a5, 1.0) * a3 - 1.5707964) * a4;
+}
+
 BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 	switch( fdwReason ) {
 		case DLL_PROCESS_ATTACH: {
@@ -905,6 +822,8 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 				FixupFO2TirePhysicsCode();
 				VirtualProtect(aTirePhysicsCode, sizeof(aTirePhysicsCode), PAGE_EXECUTE_READWRITE, &oldProt);
 				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x454320, aTirePhysicsCode);
+
+				NyaHookLib::PatchRelative(NyaHookLib::CALL, 0x45B90F, &FO2TirePhysicsMath);
 			}
 			if (bFO2SmoothSteering) {
 				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45EC27, &GetSteeringASM);
