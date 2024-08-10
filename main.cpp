@@ -6,6 +6,7 @@
 #include "fo2tirephys.h"
 #include "fo2playerinput.h"
 #include "fo2slidecontrol.h"
+#include "fo2enginepower.h"
 
 bool bFO2SmoothSteering = true;
 bool bFO2SteerLock = true;
@@ -701,6 +702,31 @@ void FixupFO2SmoothSteeringCode() {
 	NyaHookLib::PatchRelative(NyaHookLib::CALL, FO2AddrToSmoothSteeringAddr(0x46FA34), 0x47D2B0);
 }
 
+uintptr_t FO2AddrToEnginePowerAddr(uintptr_t addr) {
+	return (addr - 0x441990) + (uintptr_t)aEnginePowerCode;
+}
+
+void FixupFO2EnginePowerCode() {
+	static float flt_67DC2C = 2.0;
+	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x4419E5), &flt_67DC2C);
+	static float flt_67DB78 = 0.5;
+	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x441A00), &flt_67DB78);
+	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x441A70), &flt_67DB78);
+	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x441AAF), &flt_67DB78);
+	static float flt_67DBB4 = 0.001;
+	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x441A37), &flt_67DBB4);
+	static float flt_67DCBC = -0.5;
+	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x440B3C), &flt_67DCBC);
+	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x440D20), &flt_67DCBC);
+	static float flt_67DC64 = 1.5;
+	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x441A7C), &flt_67DC64);
+	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x441A87), &flt_67DC64);
+	static float flt_67DCC0 = 2.5;
+	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x441A97), &flt_67DCC0);
+	static float flt_67DB6C = 0.0;
+	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x441AD2), &flt_67DB6C);
+}
+
 uintptr_t FO2AddrToSlideControlAddr(uintptr_t addr) {
 	return (addr - 0x429BE0) + (uintptr_t)aSlideControlCode;
 }
@@ -760,7 +786,7 @@ void FixupFO2SlideControlCode() {
 	// 0x5C4 -> 0x5E4 maybe?
 	// 0x5C8 -> 0x5E8
 	// 0x5CC -> 0x5EC maybe?
-	// 0x1DFC -> 0x1F18
+	// 0x1DFC -> 0x1F18 nitro button
 	// 0x648 -> 0x668
 	// 0x6E4 -> 0x704
 	// 0x5D8 -> 0x5F8
@@ -770,6 +796,7 @@ void FixupFO2SlideControlCode() {
 	// 0xCFC -> 0xD3C
 	// 0x17DC -> 0x184C
 
+	// 0x5EC and 0x5F0 are both the nitro capacity
 	// 0x1DD8 is antispinmultiplier, fouc only
 
 	// wheels in fo2 are read at 0xD48
@@ -784,9 +811,6 @@ void FixupFO2SlideControlCode() {
 	// fo2 wheels actually begin at 0xA00
 	// offset of +0x348
 
-	// wheel struct size
-	ReplaceFO2SlideControlOffset(0x3A0, 0x3B0);
-
 	// negative wheel offsets
 	ReplaceFO2SlideControlOffset(-0x2D0, -0x2D0 - 0x10);
 	ReplaceFO2SlideControlOffset(-0x2D8, -0x2D8 - 0x10);
@@ -800,25 +824,8 @@ void FixupFO2SlideControlCode() {
 	ReplaceFO2SlideControlOffset(0x1DDC, 0x1EF4);
 	ReplaceFO2SlideControlOffset(0x1DE0, 0x1EF8);
 	ReplaceFO2SlideControlOffset(0x1E0C, 0x1F28);
-
 	ReplaceFO2SlideControlOffset(0x1E00, 0x1F1C);
-	ReplaceFO2SlideControlOffset(0xD34, 0xD74);
-	ReplaceFO2SlideControlOffset(0xD48, 0xD88);
-	ReplaceFO2SlideControlOffset(0x10D4, 0x1124);
-	ReplaceFO2SlideControlOffset(0x10E8, 0x1138);
-	ReplaceFO2SlideControlOffset(0x1474, 0x14D4);
-	ReplaceFO2SlideControlOffset(0x1488, 0x14E8);
-	ReplaceFO2SlideControlOffset(0x1814, 0x1884);
-	ReplaceFO2SlideControlOffset(0x1828, 0x1898);
-	ReplaceFO2SlideControlOffset(0x280, 0x290);
-	ReplaceFO2SlideControlOffset(0x284, 0x294);
-	ReplaceFO2SlideControlOffset(0x288, 0x298);
-	ReplaceFO2SlideControlOffset(0x1DF4, 0x1F10);
-	ReplaceFO2SlideControlOffset(0x1DF8, 0x1F14);
-	ReplaceFO2SlideControlOffset(0x1E04, 0x1F20);
-	ReplaceFO2SlideControlOffset(0x1DD4, 0x1EEC);
-	ReplaceFO2SlideControlOffset(0x26C, 0x27C);
-	ReplaceFO2SlideControlOffset(0xA78, 0xAA8);
+
 	ReplaceFO2SlideControlOffset(0x1B0, 0x1C0);
 	ReplaceFO2SlideControlOffset(0x1B4, 0x1C4);
 	ReplaceFO2SlideControlOffset(0x1B8, 0x1C8);
@@ -828,40 +835,59 @@ void FixupFO2SlideControlCode() {
 	ReplaceFO2SlideControlOffset(0x1D0, 0x1E0);
 	ReplaceFO2SlideControlOffset(0x1D4, 0x1E4);
 	ReplaceFO2SlideControlOffset(0x1D8, 0x1E8);
+	ReplaceFO2SlideControlOffset(0x280, 0x290);
+	ReplaceFO2SlideControlOffset(0x284, 0x294);
+	ReplaceFO2SlideControlOffset(0x288, 0x298);
 	ReplaceFO2SlideControlOffset(0x2A0, 0x2B0);
 	ReplaceFO2SlideControlOffset(0x2A4, 0x2B4);
 	ReplaceFO2SlideControlOffset(0x2A8, 0x2B8);
 	ReplaceFO2SlideControlOffset(0x2B0, 0x2C0);
 	ReplaceFO2SlideControlOffset(0x2B4, 0x2C4);
 	ReplaceFO2SlideControlOffset(0x2B8, 0x2C8);
-	ReplaceFO2SlideControlOffset(0x1C98, 0x1D40);
-	ReplaceFO2SlideControlOffset(0x1DE4, 0x1EFC);
+	ReplaceFO2SlideControlOffset(0x2BC, 0x2CC);
+	ReplaceFO2SlideControlOffset(0x26C, 0x27C);
+	ReplaceFO2SlideControlOffset(0x3A0, 0x3B0); // wheel struct size
+	ReplaceFO2SlideControlOffset(0x5C4, 0x5E4);
+	ReplaceFO2SlideControlOffset(0x5C8, 0x5E8);
+	ReplaceFO2SlideControlOffset(0x5CC, 0x5F0); // or 5EC?
+	ReplaceFO2SlideControlOffset(0x5D8, 0x5F8);
+	ReplaceFO2SlideControlOffset(0x634, 0x654);
+	ReplaceFO2SlideControlOffset(0x648, 0x668);
+	ReplaceFO2SlideControlOffset(0x6E4, 0x704);
+	ReplaceFO2SlideControlOffset(0x9DC, 0xA08);
+	ReplaceFO2SlideControlOffset(0xCFC, 0xD3C);
 	ReplaceFO2SlideControlOffset(0xA40, 0xA70);
 	ReplaceFO2SlideControlOffset(0xA44, 0xA74);
 	ReplaceFO2SlideControlOffset(0xA48, 0xA78);
+	ReplaceFO2SlideControlOffset(0xA78, 0xAA8);
+	ReplaceFO2SlideControlOffset(0xD34, 0xD74);
+	ReplaceFO2SlideControlOffset(0xD48, 0xD88);
+	ReplaceFO2SlideControlOffset(0x10D4, 0x1124);
+	ReplaceFO2SlideControlOffset(0x10E8, 0x1138);
+	ReplaceFO2SlideControlOffset(0x1474, 0x14D4);
+	ReplaceFO2SlideControlOffset(0x1488, 0x14E8);
 	ReplaceFO2SlideControlOffset(0x1520, 0x1580);
 	ReplaceFO2SlideControlOffset(0x1524, 0x1584);
 	ReplaceFO2SlideControlOffset(0x1528, 0x1588);
+	ReplaceFO2SlideControlOffset(0x17DC, 0x184C);
+	ReplaceFO2SlideControlOffset(0x1814, 0x1884);
+	ReplaceFO2SlideControlOffset(0x1828, 0x1898);
+	ReplaceFO2SlideControlOffset(0x1C98, 0x1D40);
 	ReplaceFO2SlideControlOffset(0x1CE0, 0x1DE0);
 	ReplaceFO2SlideControlOffset(0x1CE4, 0x1DE4);
 	ReplaceFO2SlideControlOffset(0x1CEC, 0x1DEC);
-	ReplaceFO2SlideControlOffset(0x5C4, 0x5E4);
-	ReplaceFO2SlideControlOffset(0x5C8, 0x5E8);
-	ReplaceFO2SlideControlOffset(0x5CC, 0x5EC);
+	ReplaceFO2SlideControlOffset(0x1DD4, 0x1EEC);
+	ReplaceFO2SlideControlOffset(0x1DE4, 0x1EFC);
+	ReplaceFO2SlideControlOffset(0x1DF4, 0x1F10);
+	ReplaceFO2SlideControlOffset(0x1DF8, 0x1F14);
 	ReplaceFO2SlideControlOffset(0x1DFC, 0x1F18);
-	ReplaceFO2SlideControlOffset(0x648, 0x668);
-	ReplaceFO2SlideControlOffset(0x6E4, 0x704);
-	ReplaceFO2SlideControlOffset(0x5D8, 0x5F8);
-	ReplaceFO2SlideControlOffset(0x634, 0x654);
-	ReplaceFO2SlideControlOffset(0x2BC, 0x2CC);
-	ReplaceFO2SlideControlOffset(0x9DC, 0xA08);
-	ReplaceFO2SlideControlOffset(0xCFC, 0xD3C);
-	ReplaceFO2SlideControlOffset(0x17DC, 0x184C);
+	ReplaceFO2SlideControlOffset(0x1E04, 0x1F20);
 
 	//NyaHookLib::PatchRelative(NyaHookLib::JMP, FO2AddrToSlideControlAddr(0x42A7F5), FO2AddrToSlideControlAddr(0x42AA69));
 	//NyaHookLib::PatchRelative(NyaHookLib::JMP, FO2AddrToSlideControlAddr(0x429E70), FO2AddrToSlideControlAddr(0x42ABED));
 
 	NyaHookLib::PatchRelative(NyaHookLib::CALL, FO2AddrToSlideControlAddr(0x42B396), 0x4450F0);
+	NyaHookLib::PatchRelative(NyaHookLib::CALL, FO2AddrToSlideControlAddr(0x42B396), &aEnginePowerCode);
 
 	static float flt_67DB9C = 0.75;
 	NyaHookLib::Patch(FO2AddrToSlideControlAddr(0x429C27), &flt_67DB9C);
@@ -993,7 +1019,9 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x47CCF0, aSmoothSteeringCode);
 			}
 			if (bFO2SlideControl) {
+				FixupFO2EnginePowerCode();
 				FixupFO2SlideControlCode();
+				VirtualProtect(aEnginePowerCode, sizeof(aEnginePowerCode), PAGE_EXECUTE_READWRITE, &oldProt);
 				VirtualProtect(aSlideControlCode, sizeof(aSlideControlCode), PAGE_EXECUTE_READWRITE, &oldProt);
 				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x42B4A0, aSlideControlCode);
 			}
