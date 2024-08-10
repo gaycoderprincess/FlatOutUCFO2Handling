@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <cmath>
+#include <format>
 #include "toml++/toml.hpp"
 #include "nya_commonhooklib.h"
 #include "fo2brakephys.h"
@@ -7,6 +8,14 @@
 #include "fo2playerinput.h"
 #include "fo2slidecontrol.h"
 #include "fo2enginepower.h"
+
+void WriteLog(const std::string& str) {
+	static auto file = std::ofstream("FlatOutUCFO2Handling_gcp.log");
+
+	file << str;
+	file << "\n";
+	file.flush();
+}
 
 bool bFO2SmoothSteering = true;
 bool bFO2SteerLock = true;
@@ -731,10 +740,17 @@ uintptr_t FO2AddrToSlideControlAddr(uintptr_t addr) {
 	return (addr - 0x429BE0) + (uintptr_t)aSlideControlCode;
 }
 
-void ReplaceFO2SlideControlOffset(uint32_t from, uint32_t to) {
+void ReplaceFO2SlideControlOffset(uint32_t from, uint32_t to, int expectedCount) {
+	int count = 0;
 	for (int i = 0; i < sizeof(aSlideControlCode); i++) {
 		uint32_t value = *(uint32_t*)&aSlideControlCodeOrig[i];
-		if (value == from) *(uint32_t*)&aSlideControlCode[i] = to;
+		if (value == from) {
+			*(uint32_t*)&aSlideControlCode[i] = to;
+			count++;
+		}
+	}
+	if (count != expectedCount) {
+		WriteLog(std::format("Patch count mismatch for {:X} ({} vs {})", from, expectedCount, count));
 	}
 }
 
@@ -812,81 +828,89 @@ void FixupFO2SlideControlCode() {
 	// offset of +0x348
 
 	// negative wheel offsets
-	ReplaceFO2SlideControlOffset(-0x2D0, -0x2D0 - 0x10);
-	ReplaceFO2SlideControlOffset(-0x2D8, -0x2D8 - 0x10);
-	ReplaceFO2SlideControlOffset(-0x308, -0x308 - 0x10);
+	ReplaceFO2SlideControlOffset(-0x2D0, -0x2D0 - 0x10, 2);
+	ReplaceFO2SlideControlOffset(-0x2D8, -0x2D8 - 0x10, 2);
+	ReplaceFO2SlideControlOffset(-0x308, -0x308 - 0x10, 2);
 
 	// 0x1DE0 -> 0x94+0xC off handling, fArcadeSteerBalanceRate_2, same as fouc, 0x1EF8 in fouc
 	// 0x1DD8 -> 0x94+0x4 off handling, fArcadeSteerBalanceFactor_2, same as fouc, 0x1EF0 in fouc
 	// 0x1DDC -> 0x94+0x8 off handling, fArcadeSteerBalanceRate_1, same as fouc, 0x1EF4 in fouc
 	// 0x1E0C -> 0x1F28, seems to always be 100.0 in both games
-	ReplaceFO2SlideControlOffset(0x1DD8, 0x1EF0);
-	ReplaceFO2SlideControlOffset(0x1DDC, 0x1EF4);
-	ReplaceFO2SlideControlOffset(0x1DE0, 0x1EF8);
-	ReplaceFO2SlideControlOffset(0x1E0C, 0x1F28);
-	ReplaceFO2SlideControlOffset(0x1E00, 0x1F1C);
+	ReplaceFO2SlideControlOffset(0x1DD8, 0x1EF0, 1);
+	ReplaceFO2SlideControlOffset(0x1DDC, 0x1EF4, 1);
+	ReplaceFO2SlideControlOffset(0x1DE0, 0x1EF8, 1);
+	ReplaceFO2SlideControlOffset(0x1E0C, 0x1F28, 1);
+	ReplaceFO2SlideControlOffset(0x1E00, 0x1F1C, 2);
 
-	ReplaceFO2SlideControlOffset(0x1B0, 0x1C0);
-	ReplaceFO2SlideControlOffset(0x1B4, 0x1C4);
-	ReplaceFO2SlideControlOffset(0x1B8, 0x1C8);
-	ReplaceFO2SlideControlOffset(0x1C0, 0x1D0);
-	ReplaceFO2SlideControlOffset(0x1C4, 0x1D4);
-	ReplaceFO2SlideControlOffset(0x1C8, 0x1D8);
-	ReplaceFO2SlideControlOffset(0x1D0, 0x1E0);
-	ReplaceFO2SlideControlOffset(0x1D4, 0x1E4);
-	ReplaceFO2SlideControlOffset(0x1D8, 0x1E8);
-	ReplaceFO2SlideControlOffset(0x280, 0x290);
-	ReplaceFO2SlideControlOffset(0x284, 0x294);
-	ReplaceFO2SlideControlOffset(0x288, 0x298);
-	ReplaceFO2SlideControlOffset(0x2A0, 0x2B0);
-	ReplaceFO2SlideControlOffset(0x2A4, 0x2B4);
-	ReplaceFO2SlideControlOffset(0x2A8, 0x2B8);
-	ReplaceFO2SlideControlOffset(0x2B0, 0x2C0);
-	ReplaceFO2SlideControlOffset(0x2B4, 0x2C4);
-	ReplaceFO2SlideControlOffset(0x2B8, 0x2C8);
-	ReplaceFO2SlideControlOffset(0x2BC, 0x2CC);
-	ReplaceFO2SlideControlOffset(0x26C, 0x27C);
-	ReplaceFO2SlideControlOffset(0x3A0, 0x3B0); // wheel struct size
-	ReplaceFO2SlideControlOffset(0x5C4, 0x5E4);
-	ReplaceFO2SlideControlOffset(0x5C8, 0x5E8);
-	ReplaceFO2SlideControlOffset(0x5CC, 0x5F0); // or 5EC?
-	ReplaceFO2SlideControlOffset(0x5D8, 0x5F8);
-	ReplaceFO2SlideControlOffset(0x634, 0x654);
-	ReplaceFO2SlideControlOffset(0x648, 0x668);
-	ReplaceFO2SlideControlOffset(0x6E4, 0x704);
-	ReplaceFO2SlideControlOffset(0x9DC, 0xA08);
-	ReplaceFO2SlideControlOffset(0xCFC, 0xD3C);
-	ReplaceFO2SlideControlOffset(0xA40, 0xA70);
-	ReplaceFO2SlideControlOffset(0xA44, 0xA74);
-	ReplaceFO2SlideControlOffset(0xA48, 0xA78);
-	ReplaceFO2SlideControlOffset(0xA78, 0xAA8);
-	ReplaceFO2SlideControlOffset(0xD34, 0xD74);
-	ReplaceFO2SlideControlOffset(0xD48, 0xD88);
-	ReplaceFO2SlideControlOffset(0x10D4, 0x1124);
-	ReplaceFO2SlideControlOffset(0x10E8, 0x1138);
-	ReplaceFO2SlideControlOffset(0x1474, 0x14D4);
-	ReplaceFO2SlideControlOffset(0x1488, 0x14E8);
-	ReplaceFO2SlideControlOffset(0x1520, 0x1580);
-	ReplaceFO2SlideControlOffset(0x1524, 0x1584);
-	ReplaceFO2SlideControlOffset(0x1528, 0x1588);
-	ReplaceFO2SlideControlOffset(0x17DC, 0x184C);
-	ReplaceFO2SlideControlOffset(0x1814, 0x1884);
-	ReplaceFO2SlideControlOffset(0x1828, 0x1898);
-	ReplaceFO2SlideControlOffset(0x1C98, 0x1D40);
-	ReplaceFO2SlideControlOffset(0x1CE0, 0x1DE0);
-	ReplaceFO2SlideControlOffset(0x1CE4, 0x1DE4);
-	ReplaceFO2SlideControlOffset(0x1CEC, 0x1DEC);
-	ReplaceFO2SlideControlOffset(0x1DD4, 0x1EEC);
-	ReplaceFO2SlideControlOffset(0x1DE4, 0x1EFC);
-	ReplaceFO2SlideControlOffset(0x1DF4, 0x1F10);
-	ReplaceFO2SlideControlOffset(0x1DF8, 0x1F14);
-	ReplaceFO2SlideControlOffset(0x1DFC, 0x1F18);
-	ReplaceFO2SlideControlOffset(0x1E04, 0x1F20);
+	ReplaceFO2SlideControlOffset(0x1B0, 0x1C0, 2);
+	//ReplaceFO2SlideControlOffset(0x1B4, 0x1C4, 1);
+	//ReplaceFO2SlideControlOffset(0x1B8, 0x1C8, 1);
+	ReplaceFO2SlideControlOffset(0x1C0, 0x1D0, 1);
+	ReplaceFO2SlideControlOffset(0x1C4, 0x1D4, 1);
+	ReplaceFO2SlideControlOffset(0x1C8, 0x1D8, 1);
+	ReplaceFO2SlideControlOffset(0x1D0, 0x1E0, 2);
+	ReplaceFO2SlideControlOffset(0x1D4, 0x1E4, 2);
+
+	ReplaceFO2SlideControlOffset(0x280, 0x290, 5);
+	ReplaceFO2SlideControlOffset(0x284, 0x294, 5);
+	ReplaceFO2SlideControlOffset(0x288, 0x298, 5);
+	//ReplaceFO2SlideControlOffset(0x2A0, 0x2B0, 1);
+	//ReplaceFO2SlideControlOffset(0x2A4, 0x2B4, 1);
+	//ReplaceFO2SlideControlOffset(0x2A8, 0x2B8, 1);
+	//ReplaceFO2SlideControlOffset(0x2B0, 0x2C0, 1);
+	//ReplaceFO2SlideControlOffset(0x2B4, 0x2C4, 1);
+	//ReplaceFO2SlideControlOffset(0x2B8, 0x2C8, 1);
+	ReplaceFO2SlideControlOffset(0x2BC, 0x2CC, 2);
+	ReplaceFO2SlideControlOffset(0x26C, 0x27C, 1);
+	ReplaceFO2SlideControlOffset(0x3A0, 0x3B0, 2); // wheel struct size
+	ReplaceFO2SlideControlOffset(0x5C4, 0x5E4, 1);
+	ReplaceFO2SlideControlOffset(0x5C8, 0x5E8, 1);
+
+	// either 5F0 or 5EC im not sure
+	//ReplaceFO2SlideControlOffset(0x5CC, 0x5F0, 1);
+	ReplaceFO2SlideControlOffset(0x5CC, 0x5EC, 1);
+
+	ReplaceFO2SlideControlOffset(0x5D8, 0x5F8, 1);
+	ReplaceFO2SlideControlOffset(0x634, 0x654, 1);
+	ReplaceFO2SlideControlOffset(0x648, 0x668, 1);
+	ReplaceFO2SlideControlOffset(0x6E4, 0x704, 1);
+	ReplaceFO2SlideControlOffset(0x9DC, 0xA08, 1);
+	ReplaceFO2SlideControlOffset(0xCFC, 0xD3C, 1);
+	ReplaceFO2SlideControlOffset(0xA40, 0xA70, 1);
+	//ReplaceFO2SlideControlOffset(0xA44, 0xA74, 1);
+	//ReplaceFO2SlideControlOffset(0xA48, 0xA78, 1);
+	ReplaceFO2SlideControlOffset(0xA78, 0xAA8, 1);
+	ReplaceFO2SlideControlOffset(0xD34, 0xD74, 1);
+	ReplaceFO2SlideControlOffset(0xD48, 0xD88, 2);
+	ReplaceFO2SlideControlOffset(0x10D4, 0x1124, 1);
+	ReplaceFO2SlideControlOffset(0x10E8, 0x1138, 1);
+	ReplaceFO2SlideControlOffset(0x1474, 0x14D4, 1);
+	ReplaceFO2SlideControlOffset(0x1488, 0x14E8, 2);
+	ReplaceFO2SlideControlOffset(0x1520, 0x1580, 1);
+	//ReplaceFO2SlideControlOffset(0x1524, 0x1584, 1);
+	//ReplaceFO2SlideControlOffset(0x1528, 0x1588, 1);
+	ReplaceFO2SlideControlOffset(0x17DC, 0x184C, 1);
+	ReplaceFO2SlideControlOffset(0x1814, 0x1884, 1);
+	ReplaceFO2SlideControlOffset(0x1828, 0x1898, 1);
+	ReplaceFO2SlideControlOffset(0x1C98, 0x1D40, 5);
+	ReplaceFO2SlideControlOffset(0x1CE0, 0x1DE0, 1);
+	ReplaceFO2SlideControlOffset(0x1CE4, 0x1DE4, 1);
+	ReplaceFO2SlideControlOffset(0x1CEC, 0x1DEC, 1);
+	ReplaceFO2SlideControlOffset(0x1DD4, 0x1EEC, 2);
+	ReplaceFO2SlideControlOffset(0x1DE4, 0x1EFC, 1);
+	ReplaceFO2SlideControlOffset(0x1DF4, 0x1F10, 2);
+	ReplaceFO2SlideControlOffset(0x1DF8, 0x1F14, 3);
+	ReplaceFO2SlideControlOffset(0x1DFC, 0x1F18, 1);
+	ReplaceFO2SlideControlOffset(0x1E04, 0x1F20, 1);
+
+	//ReplaceFO2SlideControlOffset(0x1D8, 0x1E8, 3);
+	NyaHookLib::Patch(FO2AddrToSlideControlAddr(0x42A7BD), 0x1E8);
+	NyaHookLib::Patch(FO2AddrToSlideControlAddr(0x42B3CB), 0x1E8);
 
 	//NyaHookLib::PatchRelative(NyaHookLib::JMP, FO2AddrToSlideControlAddr(0x42A7F5), FO2AddrToSlideControlAddr(0x42AA69));
 	//NyaHookLib::PatchRelative(NyaHookLib::JMP, FO2AddrToSlideControlAddr(0x429E70), FO2AddrToSlideControlAddr(0x42ABED));
 
-	NyaHookLib::PatchRelative(NyaHookLib::CALL, FO2AddrToSlideControlAddr(0x42B396), 0x4450F0);
+	//NyaHookLib::PatchRelative(NyaHookLib::CALL, FO2AddrToSlideControlAddr(0x42B396), 0x4450F0);
 	NyaHookLib::PatchRelative(NyaHookLib::CALL, FO2AddrToSlideControlAddr(0x42B396), &aEnginePowerCode);
 
 	static float flt_67DB9C = 0.75;
