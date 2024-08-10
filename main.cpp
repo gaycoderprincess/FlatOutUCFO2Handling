@@ -705,6 +705,13 @@ uintptr_t FO2AddrToSlideControlAddr(uintptr_t addr) {
 	return (addr - 0x429BE0) + (uintptr_t)aSlideControlCode;
 }
 
+void ReplaceFO2SlideControlOffset(uint32_t from, uint32_t to) {
+	for (int i = 0; i < sizeof(aSlideControlCode); i++) {
+		uint32_t value = *(uint32_t*)&aSlideControlCodeOrig[i];
+		if (value == from) *(uint32_t*)&aSlideControlCode[i] = to;
+	}
+}
+
 void FixupFO2SlideControlCode() {
 	// 0x1E00 -> 0x1F1C
 	// 0xD34 -> 0xD74
@@ -765,24 +772,105 @@ void FixupFO2SlideControlCode() {
 
 	// 0x1DD8 is antispinmultiplier, fouc only
 
+	// wheels in fo2 are read at 0xD48
+	// -0x14 - 0x334 in the +F0 struct at +0x244, +0x10 in fouc
+	// -0x2D0 - 0x78 matrix + 0x38, same in fouc
+	// -0x2D8 - 0x70 matrix + 0x30, same in fouc
+	// -0x308 - 0x40 matrix begin, same in fouc
+	// +0x30 - 0x378 in the +F0 struct at +0x288, +0x10 in fouc
+	// ptr at +0, offsets +0x44 and 0x48, seems to be +0x10 in fouc
+
+	// currently adding +0x10
+
+	// fo2 wheels actually begin at 0xA00
+	// offset of +0x348
+
+	// wheel struct size
+	ReplaceFO2SlideControlOffset(0x3A0, 0x3B0);
+
+	// negative wheel offsets
+	ReplaceFO2SlideControlOffset(-0x2D0, -0x2D0 - 0x10);
+	ReplaceFO2SlideControlOffset(-0x2D8, -0x2D8 - 0x10);
+	ReplaceFO2SlideControlOffset(-0x308, -0x308 - 0x10);
+
+	ReplaceFO2SlideControlOffset(0x1E00, 0x1F1C);
+	ReplaceFO2SlideControlOffset(0xD34, 0xD74);
+	ReplaceFO2SlideControlOffset(0xD48, 0xD88);
+	ReplaceFO2SlideControlOffset(0x10D4, 0x1124);
+	ReplaceFO2SlideControlOffset(0x10E8, 0x1138);
+	ReplaceFO2SlideControlOffset(0x1474, 0x14D4);
+	ReplaceFO2SlideControlOffset(0x1488, 0x14E8);
+	ReplaceFO2SlideControlOffset(0x1814, 0x1884);
+	ReplaceFO2SlideControlOffset(0x1828, 0x1898);
+	ReplaceFO2SlideControlOffset(0x280, 0x290);
+	ReplaceFO2SlideControlOffset(0x284, 0x294);
+	ReplaceFO2SlideControlOffset(0x288, 0x298);
+	ReplaceFO2SlideControlOffset(0x1DF4, 0x1F10);
+	ReplaceFO2SlideControlOffset(0x1DF8, 0x1F14);
+	ReplaceFO2SlideControlOffset(0x1E04, 0x1F20);
+	ReplaceFO2SlideControlOffset(0x1DD4, 0x1EEC);
+	ReplaceFO2SlideControlOffset(0x26C, 0x27C);
+	ReplaceFO2SlideControlOffset(0xA78, 0xAA8);
+	ReplaceFO2SlideControlOffset(0x1B0, 0x1C0);
+	ReplaceFO2SlideControlOffset(0x1B4, 0x1C4);
+	ReplaceFO2SlideControlOffset(0x1B8, 0x1C8);
+	ReplaceFO2SlideControlOffset(0x1C0, 0x1D0);
+	ReplaceFO2SlideControlOffset(0x1C4, 0x1D4);
+	ReplaceFO2SlideControlOffset(0x1C8, 0x1D8);
+	ReplaceFO2SlideControlOffset(0x1D0, 0x1E0);
+	ReplaceFO2SlideControlOffset(0x1D4, 0x1E4);
+	ReplaceFO2SlideControlOffset(0x1D8, 0x1E8);
+	ReplaceFO2SlideControlOffset(0x2A0, 0x2B0);
+	ReplaceFO2SlideControlOffset(0x2A4, 0x2B4);
+	ReplaceFO2SlideControlOffset(0x2A8, 0x2B8);
+	ReplaceFO2SlideControlOffset(0x2B0, 0x2C0);
+	ReplaceFO2SlideControlOffset(0x2B4, 0x2C4);
+	ReplaceFO2SlideControlOffset(0x2B8, 0x2C8);
+	ReplaceFO2SlideControlOffset(0x1C98, 0x1D40);
+	ReplaceFO2SlideControlOffset(0x1DE4, 0x1EFC);
+	ReplaceFO2SlideControlOffset(0xA40, 0xA70);
+	ReplaceFO2SlideControlOffset(0xA44, 0xA74);
+	ReplaceFO2SlideControlOffset(0xA48, 0xA78);
+	ReplaceFO2SlideControlOffset(0x1520, 0x1580);
+	ReplaceFO2SlideControlOffset(0x1524, 0x1584);
+	ReplaceFO2SlideControlOffset(0x1528, 0x1588);
+	ReplaceFO2SlideControlOffset(0x1CE0, 0x1DE0);
+	ReplaceFO2SlideControlOffset(0x1CE4, 0x1DE4);
+	ReplaceFO2SlideControlOffset(0x1CEC, 0x1DEC);
+	ReplaceFO2SlideControlOffset(0x5C4, 0x5E4);
+	ReplaceFO2SlideControlOffset(0x5C8, 0x5E8);
+	ReplaceFO2SlideControlOffset(0x5CC, 0x5EC);
+	ReplaceFO2SlideControlOffset(0x1DFC, 0x1F18);
+	ReplaceFO2SlideControlOffset(0x648, 0x668);
+	ReplaceFO2SlideControlOffset(0x6E4, 0x704);
+	ReplaceFO2SlideControlOffset(0x5D8, 0x5F8);
+	ReplaceFO2SlideControlOffset(0x634, 0x654);
+	ReplaceFO2SlideControlOffset(0x2BC, 0x2CC);
+	ReplaceFO2SlideControlOffset(0x9DC, 0xA08);
+	ReplaceFO2SlideControlOffset(0xCFC, 0xD3C);
+	ReplaceFO2SlideControlOffset(0x17DC, 0x184C);
+
+	NyaHookLib::PatchRelative(NyaHookLib::JMP, FO2AddrToSlideControlAddr(0x42A7F5), FO2AddrToSlideControlAddr(0x42AA69));
+	//NyaHookLib::PatchRelative(NyaHookLib::JMP, FO2AddrToSlideControlAddr(0x429E70), FO2AddrToSlideControlAddr(0x42ABED));
+
 	NyaHookLib::PatchRelative(NyaHookLib::CALL, FO2AddrToSlideControlAddr(0x42B396), 0x4450F0);
 
 	static float flt_67DB9C = 0.75;
-	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x429C27), &flt_67DB9C);
+	NyaHookLib::Patch(FO2AddrToSlideControlAddr(0x429C27), &flt_67DB9C);
 	static float flt_67DB78 = 0.5;
-	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x429CB4), &flt_67DB78);
-	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x42AFF5), &flt_67DB78);
-	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x42B1CE), &flt_67DB78);
+	NyaHookLib::Patch(FO2AddrToSlideControlAddr(0x429CB4), &flt_67DB78);
+	NyaHookLib::Patch(FO2AddrToSlideControlAddr(0x42AFF5), &flt_67DB78);
+	NyaHookLib::Patch(FO2AddrToSlideControlAddr(0x42B1CE), &flt_67DB78);
 	static float flt_67DBA8 = 0.05;
-	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x42AAF3), &flt_67DBA8);
+	NyaHookLib::Patch(FO2AddrToSlideControlAddr(0x42AAF3), &flt_67DBA8);
 	static float flt_67DC38 = -9.8100004;
-	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x42ABA9), &flt_67DC38);
+	NyaHookLib::Patch(FO2AddrToSlideControlAddr(0x42ABA9), &flt_67DC38);
 	static float flt_67DE74 = 5.0;
-	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x42AF3C), &flt_67DE74);
+	NyaHookLib::Patch(FO2AddrToSlideControlAddr(0x42AF3C), &flt_67DE74);
 	static float flt_67DBD8 = 0.001;
-	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x42B35A), &flt_67DBD8);
+	NyaHookLib::Patch(FO2AddrToSlideControlAddr(0x42B35A), &flt_67DBD8);
 	static float flt_67DDD0 = 9.8100004;
-	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x42B3C5), &flt_67DDD0);
+	NyaHookLib::Patch(FO2AddrToSlideControlAddr(0x42B3C5), &flt_67DDD0);
 	uintptr_t aflt_67DB6C[] = {
 		0x429BF0,
 		0x429E1A,
@@ -792,7 +880,7 @@ void FixupFO2SlideControlCode() {
 	};
 	static float flt_67DB6C = 0.0;
 	for (auto& addr : aflt_67DB6C) {
-		NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(addr), &flt_67DB6C);
+		NyaHookLib::Patch(FO2AddrToSlideControlAddr(addr), &flt_67DB6C);
 	}
 	uintptr_t aflt_67DB74[] = {
 		0x429C2D,
@@ -811,7 +899,7 @@ void FixupFO2SlideControlCode() {
 	};
 	static float flt_67DB74 = 1.0;
 	for (auto& addr : aflt_67DB74) {
-		NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(addr), &flt_67DB74);
+		NyaHookLib::Patch(FO2AddrToSlideControlAddr(addr), &flt_67DB74);
 	}
 	uintptr_t aflt_67DBA0[] = {
 		0x429CCD,
@@ -822,7 +910,7 @@ void FixupFO2SlideControlCode() {
 	};
 	static float flt_67DBA0 = 0.25;
 	for (auto& addr : aflt_67DBA0) {
-		NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(addr), &flt_67DBA0);
+		NyaHookLib::Patch(FO2AddrToSlideControlAddr(addr), &flt_67DBA0);
 	}
 }
 
