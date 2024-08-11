@@ -6,5 +6,5 @@ fo2_steering_lock = true				# Use the FO2 algorithm for the max steering angle b
 fo2_smooth_steering = true				# Use the FO2 code for reading vehicle inputs
 fo2_brake_physics = true				# Use the FO2 code for processing brake behavior
 fo2_tire_physics = true					# Use the FO2 code for processing tire physics
-fo2_slide_control = true				# Use the FO2 code for slide control (currently breaks nitro)
+fo2_slide_control = true				# Use the FO2 code for slide control
 no_steer_suspension_factor = true			# Makes the game no longer divide the steering angle by suspension FrontMinLength and RearMinLength
