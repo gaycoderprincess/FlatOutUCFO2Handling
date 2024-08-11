@@ -725,8 +725,7 @@ void FixupFO2EnginePowerCode() {
 	static float flt_67DBB4 = 0.001;
 	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x441A37), &flt_67DBB4);
 	static float flt_67DCBC = -0.5;
-	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x440B3C), &flt_67DCBC);
-	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x440D20), &flt_67DCBC);
+	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x441A63), &flt_67DCBC);
 	static float flt_67DC64 = 1.5;
 	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x441A7C), &flt_67DC64);
 	NyaHookLib::Patch(FO2AddrToEnginePowerAddr(0x441A87), &flt_67DC64);
@@ -863,7 +862,6 @@ void FixupFO2SlideControlCode() {
 	ReplaceFO2SlideControlOffset(0x2BC, 0x2CC, 2);
 	ReplaceFO2SlideControlOffset(0x26C, 0x27C, 1);
 	ReplaceFO2SlideControlOffset(0x3A0, 0x3B0, 2); // wheel struct size
-	ReplaceFO2SlideControlOffset(0x5C4, 0x5E4, 1);
 	ReplaceFO2SlideControlOffset(0x5C8, 0x5E8, 1);
 
 	// either 5F0 or 5EC im not sure
@@ -902,6 +900,13 @@ void FixupFO2SlideControlCode() {
 	ReplaceFO2SlideControlOffset(0x1DF8, 0x1F14, 3);
 	ReplaceFO2SlideControlOffset(0x1DFC, 0x1F18, 1);
 	ReplaceFO2SlideControlOffset(0x1E04, 0x1F20, 1);
+
+	// 1DEC + 5C4 for some factor
+	// seems to be 0x5FC * 0x5E4 in fouc? or 0x1F08 or 1F04
+	// there's also the additional 0x1F10 * 0x2CC
+	ReplaceFO2SlideControlOffset(0x348, 0x368, 1);
+	ReplaceFO2SlideControlOffset(0x5C4, 0x5E4, 1);
+	ReplaceFO2SlideControlOffset(0x1DEC, 0x1F04, 1);
 
 	//ReplaceFO2SlideControlOffset(0x1D8, 0x1E8, 3);
 	NyaHookLib::Patch(FO2AddrToSlideControlAddr(0x42A7BD), 0x1E8);
