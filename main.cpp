@@ -162,6 +162,12 @@ void __attribute__((naked)) HardcodedSteeringASM() {
 	);
 }
 
+void __fastcall SetCarPhysicsPtrHack(uintptr_t pCar) {
+	auto addr = pCar + 0x27C;
+	auto targetAddr = pCar + 0xA0;
+	*(uintptr_t*)addr = targetAddr;
+}
+
 uintptr_t FO2AddrToBrakePhysicsAddr(uintptr_t addr) {
 	return (addr - 0x4408D0) + (uintptr_t)aBrakePhysicsCode;
 }
@@ -535,9 +541,13 @@ void __attribute__((naked)) InputCallConventionASM() {
 		"fsub st, st(1)\n\t"
 		"push edx\n\t"
 		"mov esi, ecx\n\t" // push ecx -> mov esi, ecx
+		"pushad\n\t"
+		"mov ecx, [ecx+0x294]\n\t"
+		"call %1\n\t"
+		"popad\n\t"
 		"jmp %0\n\t"
 			:
-			:  "m" (InputCallConventionASM_jmp)
+			:  "m" (InputCallConventionASM_jmp), "i" (SetCarPhysicsPtrHack)
 	);
 }
 
@@ -749,8 +759,23 @@ void ReplaceFO2SlideControlOffset(uint32_t from, uint32_t to, int expectedCount)
 		}
 	}
 	if (count != expectedCount) {
-		WriteLog(std::format("Patch count mismatch for {:X} ({} vs {})", from, expectedCount, count));
+		WriteLog(std::format("WARNING: Patch count mismatch for {:X} ({} vs {})", from, expectedCount, count));
 	}
+}
+
+void __attribute__((naked)) SetCarPhysicsPtrASMSlideControl() {
+	__asm__ (
+		"fstp dword ptr [ebx+0xF8]\n\t"
+		"pushad\n\t"
+		"mov ecx, ebx\n\t"
+		"call %0\n\t"
+		"popad\n\t"
+		"pop ebx\n\t"
+		"add esp, 0x104\n\t"
+		"ret\n\t"
+			:
+			:  "i" (SetCarPhysicsPtrHack)
+	);
 }
 
 void FixupFO2SlideControlCode() {
@@ -825,6 +850,8 @@ void FixupFO2SlideControlCode() {
 
 	// fo2 wheels actually begin at 0xA00
 	// offset of +0x348
+
+	NyaHookLib::PatchRelative(NyaHookLib::JMP, FO2AddrToSlideControlAddr(0x42B42E), &SetCarPhysicsPtrASMSlideControl);
 
 	// negative wheel offsets
 	ReplaceFO2SlideControlOffset(-0x2D0, -0x2D0 - 0x10, 2);
@@ -985,6 +1012,39 @@ double __cdecl FO2TirePhysicsMath(float a1, float a2, float a3, float a4, float 
 // todo 429E70
 // todo 42D650
 
+// car + 0x27C seems to get overwritten
+// car + 0x1C0 + 0xBC
+// it always points to car + 0xA0
+// at 1C0 this would be offset -0x120
+void __fastcall AABBFixerHackFunc(uintptr_t ptr1, uintptr_t ptr2) {
+	auto value1 = *(uintptr_t*)(ptr1 + 0xBC);
+	auto value2 = *(uintptr_t*)(ptr2 + 0xBC);
+	if (value1 < 0x1000) {
+		WriteLog(std::format("WARNING: Something overwrote the +27C ptr at 0x{:X} to {}, setting it back to 0x{:X}", ptr1, value1, ptr1 - 0x120));
+		*(uintptr_t*)(ptr1 + 0xBC) = ptr1 - 0x120;
+	}
+	if (value2 < 0x1000) {
+		WriteLog(std::format("WARNING: Something overwrote the +27C ptr at 0x{:X} to {}, setting it back to 0x{:X}", ptr2, value2, ptr2 - 0x120));
+		*(uintptr_t*)(ptr2 + 0xBC) = ptr2 - 0x120;
+	}
+}
+
+uintptr_t AABBFixerHack_jmp = 0x5C48DF;
+int __attribute__((naked)) AABBFixerHack(void* a1) {
+	__asm__ (
+		"pushad\n\t"
+		"mov ecx, edi\n\t"
+		"mov edx, ebp\n\t"
+		"call %1\n\t"
+		"popad\n\t"
+		"mov eax, [edi+0xBC]\n\t"
+		"mov ecx, [ebp+0xBC]\n\t"
+		"jmp %0\n\t"
+		:
+		: "m" (AABBFixerHack_jmp), "i" (AABBFixerHackFunc)
+	);
+}
+
 BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 	switch( fdwReason ) {
 		case DLL_PROCESS_ATTACH: {
@@ -1015,6 +1075,8 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 			// skip new multipliers in the handling code
 			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x42B7B7, 0x42B7C5);
 			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x42C040, 0x42C046);
+
+			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x5C48D3, &AABBFixerHack);
 
 			if (bNoSteerSuspensionFactor) {
 				// remove some divisions from steering math
