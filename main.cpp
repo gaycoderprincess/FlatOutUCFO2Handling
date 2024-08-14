@@ -765,9 +765,8 @@ void ReplaceFO2SlideControlOffset(uint32_t from, uint32_t to, int expectedCount)
 
 void __attribute__((naked)) SetCarPhysicsPtrASMSlideControl() {
 	__asm__ (
-		"fstp dword ptr [ebx+0xF8]\n\t"
 		"pushad\n\t"
-		"mov ecx, ebx\n\t"
+		"mov ecx, edi\n\t"
 		"call %0\n\t"
 		"popad\n\t"
 		"pop ebx\n\t"
@@ -851,7 +850,7 @@ void FixupFO2SlideControlCode() {
 	// fo2 wheels actually begin at 0xA00
 	// offset of +0x348
 
-	NyaHookLib::PatchRelative(NyaHookLib::JMP, FO2AddrToSlideControlAddr(0x42B42E), &SetCarPhysicsPtrASMSlideControl);
+	NyaHookLib::PatchRelative(NyaHookLib::JMP, FO2AddrToSlideControlAddr(0x42B434), &SetCarPhysicsPtrASMSlideControl);
 
 	// negative wheel offsets
 	ReplaceFO2SlideControlOffset(-0x2D0, -0x2D0 - 0x10, 2);
