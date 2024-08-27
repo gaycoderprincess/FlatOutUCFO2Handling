@@ -857,15 +857,23 @@ void FixupFO2SlideControlCode() {
 	ReplaceFO2SlideControlOffset(-0x2D8, -0x2D8 - 0x10, 2);
 	ReplaceFO2SlideControlOffset(-0x308, -0x308 - 0x10, 2);
 
-	// 0x1DE0 -> 0x94+0xC off handling, fArcadeSteerBalanceRate_2, same as fouc, 0x1EF8 in fouc
-	// 0x1DD8 -> 0x94+0x4 off handling, fArcadeSteerBalanceFactor_2, same as fouc, 0x1EF0 in fouc
-	// 0x1DDC -> 0x94+0x8 off handling, fArcadeSteerBalanceRate_1, same as fouc, 0x1EF4 in fouc
+	// 0x1C98 -> 0x1D40 in fouc, 1355 in fouc, also 1355 in fo2
+	// 0x1CEC -> 0x1DEC in fouc, 0 in fouc, also 0 in fo2
+	// 0x1DD4 -> 0x1EEC in fouc, 5 in fouc, also 5 in fo2
+	// 0x1DD8 -> 0x94+0x4 off handling, fArcadeSteerBalanceFactor_2, same as fouc, 0x1EF0 in fouc, 0.0001, also 0.0001 in fo2
+	// 0x1DDC -> 0x94+0x8 off handling, fArcadeSteerBalanceRate_1, same as fouc, 0x1EF4 in fouc, 0.7, also 0.7 in fo2
+	// 0x1DE0 -> 0x94+0xC off handling, fArcadeSteerBalanceRate_2, same as fouc, 0x1EF8 in fouc, 0.35, also 0.35 in fo2
+	// 0x1DE4 -> 0x1EFC, 3 in fouc, also 3 in fo2
+	// 0x1E00 -> 0x1F1C, 0 in fouc, also 0 in fo2
 	// 0x1E0C -> 0x1F28, seems to always be 100.0 in both games
+
+	ReplaceFO2SlideControlOffset(0x1DD4, 0x1EEC, 2);
 	ReplaceFO2SlideControlOffset(0x1DD8, 0x1EF0, 1);
 	ReplaceFO2SlideControlOffset(0x1DDC, 0x1EF4, 1);
 	ReplaceFO2SlideControlOffset(0x1DE0, 0x1EF8, 1);
-	ReplaceFO2SlideControlOffset(0x1E0C, 0x1F28, 1);
+	ReplaceFO2SlideControlOffset(0x1DE4, 0x1EFC, 1);
 	ReplaceFO2SlideControlOffset(0x1E00, 0x1F1C, 2);
+	ReplaceFO2SlideControlOffset(0x1E0C, 0x1F28, 1);
 
 	ReplaceFO2SlideControlOffset(0x1B0, 0x1C0, 2);
 	//ReplaceFO2SlideControlOffset(0x1B4, 0x1C4, 1);
@@ -920,10 +928,8 @@ void FixupFO2SlideControlCode() {
 	ReplaceFO2SlideControlOffset(0x1CE0, 0x1DE0, 1);
 	ReplaceFO2SlideControlOffset(0x1CE4, 0x1DE4, 1);
 	ReplaceFO2SlideControlOffset(0x1CEC, 0x1DEC, 1);
-	ReplaceFO2SlideControlOffset(0x1DD4, 0x1EEC, 2);
-	ReplaceFO2SlideControlOffset(0x1DE4, 0x1EFC, 1);
-	ReplaceFO2SlideControlOffset(0x1DF4, 0x1F10, 2);
-	ReplaceFO2SlideControlOffset(0x1DF8, 0x1F14, 3);
+	ReplaceFO2SlideControlOffset(0x1DF4, 0x1F10, 2); // gas
+	ReplaceFO2SlideControlOffset(0x1DF8, 0x1F14, 3); // brake
 	ReplaceFO2SlideControlOffset(0x1DFC, 0x1F18, 1);
 	ReplaceFO2SlideControlOffset(0x1E04, 0x1F20, 1);
 
@@ -1044,11 +1050,20 @@ int __attribute__((naked)) AABBFixerHack(void* a1) {
 	);
 }
 
+void WriteSlideControlToFile() {
+	static auto file = std::ofstream("slidecontrol.dmp", std::ios::out | std::ios::binary);
+
+	for (auto& data : aSlideControlCode) {
+		file << data;
+	}
+	file.flush();
+}
+
 BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 	switch( fdwReason ) {
 		case DLL_PROCESS_ATTACH: {
 			if (NyaHookLib::GetEntryPoint() != 0x24CEF7) {
-				MessageBoxA(nullptr, "Unsupported game version! Make sure you're using the Steam GFWL version (.exe size of 4242504 bytes)", "nya?!~", MB_ICONERROR);
+				MessageBoxA(nullptr, aFOUCVersionFail, "nya?!~", MB_ICONERROR);
 				exit(0);
 				return TRUE;
 			}
