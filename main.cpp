@@ -83,8 +83,8 @@ void __attribute__((naked)) GetSteeringASM() {
 
 void WriteSuspensionValues() {
 	// CompressionToleranceSpeed
-	*(float*)0x849858 = 2;
-	*(float*)0x84985C = 2;
+	*(float*)0x849858 = 1;
+	*(float*)0x84985C = 1;
 
 	// CompressionMaxCorrection
 	*(float*)0x849860 = 0;
