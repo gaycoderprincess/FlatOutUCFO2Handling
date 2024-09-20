@@ -620,7 +620,7 @@ void FixupFO2SmoothSteeringCode() {
 
 	// todo, this is a multiplier with a value that doesn't exist
 	// was hacked in previously with [413] - [414] (pCar[561] - pCar[562])
-	NyaHookLib::Fill(FO2AddrToSmoothSteeringAddr(0x46F70B), 0x90, 0x46F711 - 0x46F70B);
+	//NyaHookLib::Fill(FO2AddrToSmoothSteeringAddr(0x46F70B), 0x90, 0x46F711 - 0x46F70B);
 
 	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F707), 0x314); // 3B8 -> 314
 	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F6D7), 0x290); // +0x280 -> +0x290
@@ -634,10 +634,14 @@ void FixupFO2SmoothSteeringCode() {
 	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F5D3), 0x8BC); // 668 -> 8BC
 	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F512), 0x8C0); // 66C -> 8C0
 	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F557), 0x8C4); // 670 -> 8C4
+
+	// this is a bit weird but seems to work
 	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F968), 0x8C8); // 674 -> 8C8
-	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F6C6), 0x8C8); // 678 -> 8C8 todo
-	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F713), 0x8C8); // 678 -> 8C8 todo
-	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F719), 0x8C8); // 678 -> 8C8 todo
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F6C6), 0x8C8); // 678 -> 8C8
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F713), 0x8C4); // 678 -> 8C4
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F719), 0x8C4); // 678 -> 8C4
+	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F70D), 0x8CC); // 67C -> 8CC
+
 	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46F6D2), 0x8F8); // 6B0 -> 8F8
 	NyaHookLib::Patch(FO2AddrToSmoothSteeringAddr(0x46FA2E), 0x90C); // 6B8 -> 90C
 
