@@ -1041,16 +1041,47 @@ void __fastcall AABBFixerHackFunc(uintptr_t ptr1, uintptr_t ptr2) {
 uintptr_t AABBFixerHack_jmp = 0x5C48DF;
 int __attribute__((naked)) AABBFixerHack(void* a1) {
 	__asm__ (
-		"pushad\n\t"
-		"mov ecx, edi\n\t"
-		"mov edx, ebp\n\t"
-		"call %1\n\t"
-		"popad\n\t"
-		"mov eax, [edi+0xBC]\n\t"
-		"mov ecx, [ebp+0xBC]\n\t"
-		"jmp %0\n\t"
+			"pushad\n\t"
+			"mov ecx, edi\n\t"
+			"mov edx, ebp\n\t"
+			"call %1\n\t"
+			"popad\n\t"
+			"mov eax, [edi+0xBC]\n\t"
+			"mov ecx, [ebp+0xBC]\n\t"
+			"jmp %0\n\t"
 		:
 		: "m" (AABBFixerHack_jmp), "i" (AABBFixerHackFunc)
+	);
+}
+
+// some factor onto turbo, used for AI catchup
+float fTurboBak = 0;
+void __fastcall SlideControlStart(float* p) {
+	fTurboBak = p[0x1F04/4];
+	p[0x1F04/4] += p[0x1F08/4];
+}
+
+void __fastcall SlideControlEnd(float* p) {
+	p[0x1F04/4] = fTurboBak;
+}
+
+uintptr_t FO2SlideControlWrappedASM_call = (uintptr_t)aSlideControlCode;
+void __attribute__((naked)) FO2SlideControlWrappedASM() {
+	__asm__ (
+			"pushad\n\t"
+			"mov ecx, edi\n\t"
+			"call %1\n\t"
+			"popad\n\t"
+			"pushad\n\t"
+			"call %0\n\t"
+			"popad\n\t"
+			"pushad\n\t"
+			"mov ecx, edi\n\t"
+			"call %2\n\t"
+			"popad\n\t"
+			"ret\n\t"
+		:
+		: "m" (FO2SlideControlWrappedASM_call), "i" (SlideControlStart), "i" (SlideControlEnd)
 	);
 }
 
@@ -1132,7 +1163,8 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 				FixupFO2SlideControlCode();
 				VirtualProtect(aEnginePowerCode, sizeof(aEnginePowerCode), PAGE_EXECUTE_READWRITE, &oldProt);
 				VirtualProtect(aSlideControlCode, sizeof(aSlideControlCode), PAGE_EXECUTE_READWRITE, &oldProt);
-				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x42B4A0, aSlideControlCode);
+				//NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x42B4A0, aSlideControlCode);
+				NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x42B4A0, &FO2SlideControlWrappedASM);
 			}
 
 			static const char* steeringPath = "Data.Physics.Car.Steering_PC";
