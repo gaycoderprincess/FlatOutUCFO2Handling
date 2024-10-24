@@ -12,9 +12,11 @@ SET(CMAKE_CXX_STANDARD 20)
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -masm=intel -s -static")
 
+add_compile_definitions(NYA_COMMON_NO_D3D)
 add_library(FlatOutUCFO2Handling SHARED main.cpp)
 target_include_directories(FlatOutUCFO2Handling PUBLIC ../nya-common)
 target_include_directories(FlatOutUCFO2Handling PUBLIC ../nya-common/3rdparty)
+target_include_directories(FlatOutUCFO2Handling PUBLIC ../nya-common-fouc)
 target_link_options(FlatOutUCFO2Handling PRIVATE "-Wl,--exclude-all-symbols")
 set_target_properties(FlatOutUCFO2Handling PROPERTIES PREFIX "")
 set_target_properties(FlatOutUCFO2Handling PROPERTIES SUFFIX "_gcp.asi")

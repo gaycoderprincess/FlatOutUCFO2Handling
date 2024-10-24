@@ -9,6 +9,8 @@
 #include "fo2slidecontrol.h"
 #include "fo2enginepower.h"
 
+#include "fouc.h"
+
 void WriteLog(const std::string& str) {
 	static auto file = std::ofstream("FlatOutUCFO2Handling_gcp.log");
 
@@ -1058,7 +1060,7 @@ int __attribute__((naked)) AABBFixerHack(void* a1) {
 float fTurboBak = 0;
 void __fastcall SlideControlStart(float* p) {
 	fTurboBak = p[0x1F04/4];
-	p[0x1F04/4] += p[0x1F08/4];
+	if (pGameFlow->nGameMode != GM_ARCADE_CAREER) p[0x1F04/4] += p[0x1F08/4];
 }
 
 void __fastcall SlideControlEnd(float* p) {
