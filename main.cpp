@@ -9,6 +9,8 @@
 #include "fo2slidecontrol.h"
 #include "fo2enginepower.h"
 
+#include "nya_commonmath.h"
+
 #include "fouc.h"
 #include "fo2versioncheck.h"
 
@@ -26,6 +28,7 @@ bool bFO2BrakePhysics = true;
 bool bFO2TirePhysics = true;
 bool bFO2SlideControl = true;
 bool bNoSteerSuspensionFactor = true;
+bool bFO2Downforce = true;
 
 void* pDBSteering = nullptr;
 
@@ -1097,6 +1100,49 @@ void WriteSlideControlToFile() {
 	file.flush();
 }
 
+void __fastcall DoFO2Downforce(Car* pCar) {
+	if (!bFO2Downforce) return;
+	*pCar->GetVelocityGravity() += pCar->GetMatrix()->y * -pCar->GetVelocity()->LengthSqr() * pCar->fMass * 0.0011772001;
+}
+
+uintptr_t FO2SlideControlWrappedASM_jmp = 0x42AFBF;
+void __attribute__((naked)) FO2DownforceASM() {
+	__asm__ (
+		"pushad\n\t"
+		"mov ecx, ebp\n\t"
+		"call %1\n\t"
+		"popad\n\t"
+		"fld dword ptr [ebp+0x290]\n\t"
+		"jmp %0\n\t"
+			:
+			: "m" (FO2SlideControlWrappedASM_jmp), "i" (DoFO2Downforce)
+	);
+}
+
+void SetFO2Downforce(bool on) {
+	NyaHookLib::Patch<uint64_t>(0x42B11C, on ? 0x86D990909090D8DD : 0x86D9000000F09ED9); // downforce x
+	NyaHookLib::Patch<uint64_t>(0x42B132, on ? 0x44D990909090D8DD : 0x44D9000000F49ED9); // downforce y
+	NyaHookLib::Patch<uint64_t>(0x42B144, on ? 0x44D990909090D8DD : 0x44D9000000F89ED9); // downforce z
+	NyaHookLib::Patch<uint64_t>(0x42B18D, on ? 0x44D990909090D8DD : 0x44D9000001009ED9); // downforce rx
+	NyaHookLib::Patch<uint64_t>(0x42B1B5, on ? 0xCAD990909090D8DD : 0xCAD9000001049ED9); // downforce ry
+	NyaHookLib::Patch<uint64_t>(0x42B1D3, on ? 0x1DD890909090D8DD : 0x1DD8000001089ED9); // downforce rz
+	NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x42AFB9, &FO2DownforceASM);
+}
+
+int ChloeFO2Handling_SetDownforceEnabled(void* a1) {
+	SetFO2Downforce(bFO2Downforce = luaL_checknumber(a1, 1));
+	return 0;
+}
+
+void RegisterLUAFunction(void* a1, void* function, const char* name) {
+	lua_pushcfunction(a1, function, 0);
+	lua_setfield(a1, -10002, name);
+}
+
+void CustomLUAFunctions(void* a1) {
+	RegisterLUAFunction(a1, (void*)&ChloeFO2Handling_SetDownforceEnabled, "ChloeFO2Handling_SetDownforceEnabled");
+}
+
 BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 	switch( fdwReason ) {
 		case DLL_PROCESS_ATTACH: {
@@ -1109,6 +1155,14 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 			bFO2TirePhysics = config["main"]["fo2_tire_physics"].value_or(true);
 			bFO2SlideControl = config["main"]["fo2_slide_control"].value_or(true);
 			bNoSteerSuspensionFactor = config["main"]["no_steer_suspension_factor"].value_or(true);
+			bFO2Downforce = config["main"]["fo2_downforce"].value_or(true);
+
+			NyaFO2Hooks::PlaceScriptHook();
+			NyaFO2Hooks::aScriptFuncs.push_back(CustomLUAFunctions);
+
+			if (bFO2Downforce) {
+				SetFO2Downforce(true);
+			}
 
 			if (bFO2SteerLock) {
 				// get sqrt of car speed for max steer angle
